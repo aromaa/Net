@@ -52,7 +52,7 @@ namespace Net.Connections
         private Pipe? ReceivePipe;
         private Pipe? SendPipe;
 
-        private SemaphoreSlim? SendPipeLock;
+        private SpinLock SendPipeLock;
 
         private SemaphoreSlim? AsyncReadHandlesSemaphore;
 
@@ -109,10 +109,13 @@ namespace Net.Connections
             this._DisconnectEvent = delegate { };
         }
 
+
         //For testing
+#pragma warning disable CS8618 // Non-nullable field is uninitialized.
         internal SocketConnection(SocketConnectionManager socketConnectionMannager)
+#pragma warning restore CS8618 // Non-nullable field is uninitialized.
         {
-            this.SocketConnectionManager = new SocketConnectionManager();
+            this.SocketConnectionManager = socketConnectionMannager;
 
             this.IPAddress = IPAddress.Loopback;
 
@@ -159,7 +162,7 @@ namespace Net.Connections
                 this.ReceivePipe = new Pipe(SocketConnection.PIPE_OPTIONS);
                 this.SendPipe = new Pipe(SocketConnection.PIPE_OPTIONS);
 
-                this.SendPipeLock = new SemaphoreSlim(1);
+                this.SendPipeLock = new SpinLock();
 
                 this.AsyncReadHandlesSemaphore = new SemaphoreSlim(1, 1);
 
@@ -172,11 +175,6 @@ namespace Net.Connections
 
         private async Task Receive()
         {
-            if (this.ReceivePipe == null || this.ReceiveAsyncEventArgs == null)
-            {
-                throw new NotSupportedException();
-            }
-
             while (!this.Disposing)
             {
                 try
@@ -226,11 +224,6 @@ namespace Net.Connections
 
         private async Task HandleData()
         {
-            if (this.ReceivePipe == null || this.AsyncReadHandlesSemaphore == null)
-            {
-                throw new NotSupportedException();
-            }
-
             while (!this.Disconnected)
             {
                 try
@@ -238,14 +231,8 @@ namespace Net.Connections
                     ReadResult readResult = await this.ReceivePipe.Reader.ReadAsync().ConfigureAwait(false);
                     if (readResult.IsCanceled || readResult.IsCompleted)
                     {
-                        try
-                        {
-                            this.AsyncReadHandlesSemaphore.Wait(TimeSpan.FromSeconds(10)); //Wait for async method to finish, or wait max 10s and forcibly take down
-                        }
-                        catch
-                        {
-
-                        }
+                        //Wait here for maxium of 10s to prevent long running task messing up due to disconnection in the middle
+                        await this.AsyncReadHandlesSemaphore.WaitAsync(TimeSpan.FromSeconds(10));
 
                         break;
                     }
@@ -281,11 +268,6 @@ namespace Net.Connections
 
         private async Task Send()
         {
-            if (this.SendPipe == null)
-            {
-                throw new NotSupportedException();
-            }
-
             while (!this.Disconnected)
             {
                 try
@@ -329,27 +311,16 @@ namespace Net.Connections
 
         public PacketWriter ReservePacketWriter()
         {
-            if (this.SendPipe != null)
-            {
-                this.SendPipeLock.Wait();
+            bool lockTaken = false;
 
-                return new PacketWriter(this.SendPipe.Writer);
-            }
-            else
-            {
-                return new PacketWriter();
-            }
+            this.SendPipeLock.Enter(ref lockTaken);
+
+            return new PacketWriter(this.SendPipe.Writer);
         }
 
-        public void ReturnPacketWriter(PacketWriter writer)
+        public void ReturnPacketWriter(ref PacketWriter writer)
         {
-            if (writer.PipeWriter != null && this.SendPipe != null)
-            {
-                if (writer.PipeWriter == this.SendPipe.Writer)
-                {
-                    this.SendPipeLock.Release();
-                }
-            }
+            this.SendPipeLock.Exit();
 
             writer.Release();
         }
@@ -367,15 +338,20 @@ namespace Net.Connections
         {
             if (!this.Disconnected)
             {
-                PacketWriter writer = this.ReservePacketWriter();
+                bool lockTaken = false;
                 
                 try
                 {
-                    writer.WriteBytes(bytes.Span);
+                    this.SendPipeLock.Enter(ref lockTaken);
+
+                    this.SendPipe.Writer.WriteAsync(bytes).GetAwaiter().GetResult();
                 }
                 finally
                 {
-                    this.ReturnPacketWriter(writer);
+                    if (lockTaken)
+                    {
+                        this.SendPipeLock.Exit();
+                    }
                 }
             }
         }

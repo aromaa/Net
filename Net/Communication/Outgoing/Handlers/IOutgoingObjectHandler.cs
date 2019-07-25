@@ -18,6 +18,10 @@ namespace Net.Communication.Outgoing.Handlers
             {
                 direct.Handle(ref context, data, ref writer);
             }
+            else
+            {
+                context.ProgressWriteHandler(data, ref writer);
+            }
         }
     }
 

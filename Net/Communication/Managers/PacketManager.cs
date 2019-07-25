@@ -202,7 +202,9 @@ namespace Net.Communication.Managers
                 return true;
             }
 
+#pragma warning disable CS8653 // A default expression introduces a null value for a type parameter.
             packet = default;
+#pragma warning restore CS8653 // A default expression introduces a null value for a type parameter.
 
             return false;
         }
@@ -219,9 +221,9 @@ namespace Net.Communication.Managers
             return false;
         }
 
-        public bool HandleIncomingPacket<T>(ref SocketPipelineContext context, in T packet)
+        public bool HandleIncomingPacket<U>(ref SocketPipelineContext context, in U packet)
         {
-            if (this.IncomingHandlers.TryGetValue(typeof(T), out IIncomingPacketHandler handler))
+            if (this.IncomingHandlers.TryGetValue(typeof(U), out IIncomingPacketHandler handler))
             {
                 handler.Handle(ref context, packet);
 

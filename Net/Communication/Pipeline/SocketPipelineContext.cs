@@ -92,12 +92,17 @@ namespace Net.Communication.Pipeline
             }
             finally
             {
-                this.Connection.ReturnPacketWriter(writer);
+                this.Connection.ReturnPacketWriter(ref writer);
             }
         }
 
         public void SendAndDisconnect<T>(in T packet, string? reason = default) => this.Connection.SendAndDisconnect(packet, reason);
 
         public void Disconnect(string? reason = default) => this.Connection.Disconnect(reason);
+
+        internal void ResetDangerous()
+        {
+            this.CurrentIndex = 0;
+        }
     }
 }

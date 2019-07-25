@@ -18,8 +18,6 @@ namespace Net.Managers
         public const long TIMEOUT_MS = 30 * 1000; //30s is reasonable, gets the client off fairly quickly on dead conenction
         public const int PING_INTERVAL_MS = 10 * 1000; //10s is good enought to make sure they are still there
 
-        private static readonly ILog Logger = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-
         private volatile bool Disposed;
 
         private ClientCollection Connections;
