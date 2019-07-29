@@ -13,7 +13,7 @@ namespace Net.Communication.Incoming.Helpers
 {
     public ref struct PacketReader
     {
-        internal SequenceReader<byte> Reader;
+        private SequenceReader<byte> Reader;
 
         public bool Consumed { get; set; }
 
@@ -26,7 +26,9 @@ namespace Net.Communication.Incoming.Helpers
         }
 
         public ReadOnlySequence<byte> Sequence => this.Reader.Sequence;
-        
+
+        public ReadOnlySequence<byte> SequenceSliced => this.Sequence.Slice(start: this.Reader.Position);
+
         public long Remaining => this.Reader.Remaining;
         public bool Readable => !this.Reader.End;
 
@@ -164,6 +166,26 @@ namespace Net.Communication.Incoming.Helpers
                 value |= (b & (uint)0x7F) << shift;
                 shift += 7;
             }
+
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryReadFixedString(out Utf8Span value)
+        {
+            if (this.TryReadUInt16(out ushort length) && this.Remaining >= length)
+            {
+                byte[] bytes = new byte[length];
+
+                if (this.Reader.TryCopyTo(bytes))
+                {
+                    value = new Utf8Span(bytes);
+
+                    return true;
+                }
+            }
+
+            value = default;
 
             return false;
         }

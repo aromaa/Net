@@ -244,5 +244,7 @@ namespace Net.Communication.Managers
 
             return false;
         }
+
+        public bool GetPacketComposer<U>(out IOutgoingPacketComposer composer) => this.OutgoingComposers.TryGetValue(typeof(U), out composer);
     }
 }

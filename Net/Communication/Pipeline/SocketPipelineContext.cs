@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Net.Communication.Incoming.Packet;
 using Net.Communication.Outgoing.Helpers;
 using Net.Communication.Outgoing.Packet;
+using Net.Communication.Outgoing.Handlers;
 
 namespace Net.Communication.Pipeline
 {
@@ -15,46 +16,70 @@ namespace Net.Communication.Pipeline
     {
         public SocketConnection Connection { get; }
 
-        private int CurrentIndex;
+        private LinkedListNode<IPipelineHandler?> Current;
 
         public SocketPipelineContext(SocketConnection connection)
         {
             this.Connection = connection;
 
-            this.CurrentIndex = 0;
+            this.Current = this.Connection.Pipeline.Handlers.First;
         }
 
         public void ProgressHandlerIn<T>(ref T data)
         {
-            int pos = this.CurrentIndex;
+            LinkedListNode<IPipelineHandler?> current = this.Current;
 
             try
             {
-                while (this.Connection.Pipeline.HandleIn(ref this, ref data, this.CurrentIndex++) == null)
+                do
                 {
-                    //Find first handler that can take this input
+                    if (this.Current.Value is IIncomingObjectHandler objectHandler)
+                    {
+                        this.Current = this.Current.Next;
+
+                        objectHandler.Handle(ref this, ref data);
+
+                        break;
+                    }
+                    else
+                    {
+                        this.Current = this.Current.Next;
+                    }
                 }
+                while (this.Current != null);
             }
             finally
             {
-                this.CurrentIndex = pos;
+                this.Current = current;
             }
         }
 
         public void ProgressHandlerOut<T>(in T data, ref PacketWriter writer)
         {
-            int pos = this.CurrentIndex;
+            LinkedListNode<IPipelineHandler?> current = this.Current;
 
             try
             {
-                while (this.Connection.Pipeline.HandleOut(ref this, data, this.CurrentIndex++, ref writer) == null)
+                do
                 {
-                    //Find first handler that can take this input
+                    if (this.Current.Value is IOutgoingObjectHandler objectHandler)
+                    {
+                        this.Current = this.Current.Next;
+
+                        objectHandler.Handle(ref this, data, ref writer);
+
+                        break;
+                    }
+                    else
+                    {
+                        this.Current = this.Current.Next;
+                    }
                 }
+                while (this.Current != null);
             }
             finally
             {
-                this.CurrentIndex = pos;
+                this.Current = current;
             }
         }
 
@@ -71,8 +96,6 @@ namespace Net.Communication.Pipeline
         public void RemoveHandler(IPipelineHandler handler)
         {
             this.Connection.Pipeline.RemoveHandler(handler);
-            
-            this.CurrentIndex--;
         }
 
         public void AddHandlerLast(IPipelineHandler handler)
@@ -99,10 +122,5 @@ namespace Net.Communication.Pipeline
         public void SendAndDisconnect<T>(in T packet, string? reason = default) => this.Connection.SendAndDisconnect(packet, reason);
 
         public void Disconnect(string? reason = default) => this.Connection.Disconnect(reason);
-
-        internal void ResetDangerous()
-        {
-            this.CurrentIndex = 0;
-        }
     }
 }

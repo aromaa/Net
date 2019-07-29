@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.NetworkInformation;
 using System.Text;
 using Net.Communication.Incoming.Handlers;
@@ -12,25 +13,24 @@ namespace Net.Communication.Pipeline
 {
     public class SocketPipeline
     {
-        private IOrderedDictionary Handlers;
+        //TODO: Do something about thread safety
+        internal LinkedList<IPipelineHandler?> Handlers;
 
-        public SocketPipeline() : this(new OrderedDictionary())
+        public SocketPipeline()
         {
-        }
-
-        private SocketPipeline(IOrderedDictionary handlers)
-        {
-            this.Handlers = handlers;
-        }
-
-        public void AddHandlerLast(IPipelineHandler handler)
-        {
-            this.Handlers.Add(handler, handler);
+            this.Handlers = new LinkedList<IPipelineHandler?>();
+            this.Handlers.AddLast((IPipelineHandler?)null); //Hacky workaround to allow adding handlers while in use
         }
 
         public void AddHandlerFirst(IPipelineHandler handler)
         {
-            this.Handlers.Insert(0, handler, handler);
+            this.Handlers.AddFirst(handler);
+        }
+
+        public void AddHandlerLast(IPipelineHandler handler)
+        {
+            this.Handlers.Last.Value = handler;
+            this.Handlers.AddLast((IPipelineHandler?)null);
         }
 
         public void RemoveHandler(IPipelineHandler handler)
@@ -38,42 +38,66 @@ namespace Net.Communication.Pipeline
             this.Handlers.Remove(handler);
         }
 
-        public bool? HandleIn<T>(ref SocketPipelineContext context, ref T data, int index)
+        public Enumerator GetEnumerator() => new Enumerator(this.Handlers);
+
+        public struct Enumerator : IEnumerator<IPipelineHandler>
         {
-            if (this.Handlers.Count > index)
+            private LinkedListNode<IPipelineHandler?> Node;
+            [AllowNull] private IPipelineHandler Value;
+
+            private int Index;
+
+            public Enumerator(LinkedList<IPipelineHandler?> list)
             {
-                IPipelineHandler handler = (IPipelineHandler)this.Handlers[index];
-                if (handler is IIncomingObjectHandler objectHandler)
+                this.Node = list.First;
+                this.Value = default;
+
+                this.Index = 0;
+            }
+
+            public IPipelineHandler Current => this.Value;
+
+            object IEnumerator.Current
+            {
+                get
                 {
-                    objectHandler.Handle(ref context, ref data);
+                    if (this.Index == 0 || this.Index == this.Node.List.Count)
+                    {
+                        throw new InvalidOperationException();
+                    }
+
+                    return this.Value;
+                }
+            }
+
+            public bool MoveNext()
+            {
+                if (this.Node.Value == null)
+                {
+                    this.Index = this.Node.List.Count;
 
                     return false;
                 }
 
-                return null;
-            }
-            else
-            {
+                this.Index++;
+
+                this.Value = this.Node.Value;
+                this.Node = this.Node.Next;
+
                 return true;
             }
-        }
 
-        public bool? HandleOut<T>(ref SocketPipelineContext context, in T data, int index, ref PacketWriter writer)
-        {
-            if (this.Handlers.Count > index)
+            public void Dispose()
             {
-                if (this.Handlers[index] is IOutgoingObjectHandler objectHandler)
-                {
-                    objectHandler.Handle(ref context, in data, ref writer);
 
-                    return false;
-                }
-
-                return null;
             }
-            else
+
+            public void Reset()
             {
-                return true;
+                this.Node = this.Node.List.First;
+                this.Value = default;
+
+                this.Index = 0;
             }
         }
     }

@@ -19,7 +19,7 @@ namespace Net.Communication.Incoming.Handlers
 
             this.Handle(ref context, ref packetReader);
 
-            data = packetReader.Consumed ? packetReader.Sequence.Slice(start: packetReader.Reader.Position) : packetReader.Sequence;
+            data = packetReader.Consumed ? packetReader.SequenceSliced : packetReader.Sequence;
         }
 
         //void IIncomingObjectHandler<byte[]>.Handle<U>(ref SocketPipelineContext context, ref U data)
