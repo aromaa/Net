@@ -45,7 +45,20 @@ namespace Net.Communication.Incoming.Helpers
                 throw new IndexOutOfRangeException();
             }
 
+            this.Reader.Advance(bytes.Length);
+
             return bytes;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ReadBytes(in Span<byte> buffer)
+        {
+            if (!this.Reader.TryCopyTo(buffer))
+            {
+                throw new IndexOutOfRangeException();
+            }
+
+            this.Reader.Advance(buffer.Length);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -83,10 +96,10 @@ namespace Net.Communication.Incoming.Helpers
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Utf8Span ReadFixedString() => this.ReadFixedString(this.ReadUInt16());
+        public Utf8String ReadFixedString() => this.ReadFixedString(this.ReadUInt16());
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Utf8Span ReadFixedString(long count)
+        public Utf8String ReadFixedString(long count)
         {
             byte[] buffer = new byte[count];
 
@@ -94,7 +107,7 @@ namespace Net.Communication.Incoming.Helpers
             {
                 this.Reader.Advance(count);
 
-                return new Utf8Span(buffer);
+                return new Utf8String(buffer);
             }
             else
             {
@@ -103,7 +116,7 @@ namespace Net.Communication.Incoming.Helpers
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Utf8Span ReadLineBrokenString(byte broker) => this.Reader.TryReadTo(out ReadOnlySpan<byte> sequence, broker) ? new Utf8Span(sequence) : throw new IndexOutOfRangeException();
+        public Utf8String ReadLineBrokenString(byte broker) => this.Reader.TryReadTo(out ReadOnlySpan<byte> sequence, broker) ? new Utf8String(sequence) : throw new IndexOutOfRangeException();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Skip(long amount) => this.Reader.Advance(amount);

@@ -1,4 +1,5 @@
-﻿using Net.Extensions;
+﻿using Net.Communication.Incoming.Helpers;
+using Net.Extensions;
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -46,6 +47,43 @@ namespace Net.Communication.Outgoing.Helpers
         public void WriteBytes(in ReadOnlySpan<byte> value) => value.CopyTo(this.GetSpan(value.Length));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteBytes(ref PacketReader reader)
+        {
+            while (reader.Readable)
+            {
+                Span<byte> span = this.PipeWriter.GetSpan();
+
+                int amount = (int)Math.Min(reader.Remaining, span.Length);
+
+                reader.ReadBytes(span.Slice(start: 0, length: amount));
+
+                this.PipeWriter.Advance(amount);
+
+                this.Pointer += amount;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteBytes(in ReadOnlySequence<byte> sequence)
+        {
+            ReadOnlySequence<byte> temp = sequence;
+            while (!temp.IsEmpty)
+            {
+                Span<byte> span = this.PipeWriter.GetSpan();
+
+                temp.CopyTo(span);
+
+                int amount = (int)Math.Min(temp.Length, span.Length);
+
+                temp = temp.Slice(start: amount);
+
+                this.PipeWriter.Advance(amount);
+
+                this.Pointer += amount;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteInt32(int value) => BinaryPrimitives.WriteInt32BigEndian(this.GetSpan(4), value);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteUInt32(uint value) => BinaryPrimitives.WriteUInt32BigEndian(this.GetSpan(4), value);
@@ -77,6 +115,13 @@ namespace Net.Communication.Outgoing.Helpers
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteFixedString(Utf8String value)
+        {
+            this.WriteUInt16((ushort)value.Bytes.Length);
+            this.WriteBytes(value.Bytes);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteLineBrokenString(Utf8Span value, byte breaker)
         {
             this.WriteBytes(value.Bytes);
@@ -88,11 +133,11 @@ namespace Net.Communication.Outgoing.Helpers
         {
             this.CheckReleased();
 
-            this.Pointer += amount;
-
             Span<byte> span = this.PipeWriter.GetSpan(amount);
 
             this.PipeWriter.Advance(amount);
+
+            this.Pointer += amount;
 
             return span;
         }

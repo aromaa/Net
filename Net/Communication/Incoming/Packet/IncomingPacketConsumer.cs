@@ -9,28 +9,16 @@ namespace Net.Communication.Incoming.Packet
 {
     public class IncomingPacketConsumer<T> : IIncomingPacketConsumer, IIncomingPacketParser<T>, IIncomingPacketHandler<T>
     {
-        private IIncomingPacketParser<T> Parser { get; }
-        private IIncomingPacketHandler<T>? Handler { get; }
+        public IIncomingPacketParser<T> Parser { get; }
+        public IIncomingPacketHandler<T> Handler { get; }
 
-        public IncomingPacketConsumer(IIncomingPacketParser<T> parser, IIncomingPacketHandler<T>? handler = default)
+        public IncomingPacketConsumer(IIncomingPacketParser<T> parser, IIncomingPacketHandler<T> handler)
         {
             this.Parser = parser;
             this.Handler = handler;
         }
 
-        public void Read(ref SocketPipelineContext context, ref PacketReader reader)
-        {
-            T packet = this.Parse(ref reader);
-
-            if (this.Handler != null)
-            {
-                this.Handle(ref context, packet); //Read-only
-            }
-            else
-            {
-                context.ProgressReadHandler(ref packet); //Writable
-            }
-        }
+        public void Read(ref SocketPipelineContext context, ref PacketReader reader) => this.Handle(ref context, this.Parse(ref reader));
 
         public T Parse(ref PacketReader reader) => this.Parser.Parse(ref reader);
 

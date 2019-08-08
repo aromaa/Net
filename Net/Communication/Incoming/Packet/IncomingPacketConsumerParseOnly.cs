@@ -7,11 +7,11 @@ using Net.Communication.Pipeline;
 
 namespace Net.Communication.Incoming.Packet
 {
-    public class IncomingPacletConsumerParseOnly<T> : IIncomingPacketConsumer, IIncomingPacketParser<T>
+    public class IncomingPacketConsumerParseOnly<T> : IIncomingPacketConsumer, IIncomingPacketParser<T>
     {
-        private IIncomingPacketParser<T> Parser;
+        public IIncomingPacketParser<T> Parser { get; }
 
-        public IncomingPacletConsumerParseOnly(IIncomingPacketParser<T> parser)
+        public IncomingPacketConsumerParseOnly(IIncomingPacketParser<T> parser)
         {
             this.Parser = parser;
         }
