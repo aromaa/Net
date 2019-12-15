@@ -21,7 +21,7 @@ namespace Net.Collections
             //Can this be done without locking?
             lock (this.BackingDictionary)
             {
-                if (this.OnTryAdd(connection) && this.BackingDictionary.TryAdd(connection.Id, connection))
+                if (this.OnTryAdd(connection))
                 {
                     try
                     {
@@ -46,7 +46,7 @@ namespace Net.Collections
 
         protected virtual bool OnTryAdd(SocketConnection connection)
         {
-            return true;
+            return this.BackingDictionary.TryAdd(connection.Id, connection);
         }
 
         protected virtual void OnAdded(SocketConnection connection)
