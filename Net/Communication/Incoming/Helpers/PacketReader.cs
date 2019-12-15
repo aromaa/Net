@@ -1,13 +1,15 @@
 ﻿using Net.Communication.Outgoing.Helpers;
 using System;
 using System.Buffers;
-using System.Buffers.Native;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
+#if NETCOREAPP5_0
 using System.Text.Utf8;
+using System.Buffers.Native;
+#endif
 
 namespace Net.Communication.Incoming.Helpers
 {
@@ -94,7 +96,7 @@ namespace Net.Communication.Incoming.Helpers
 
             return value;
         }
-
+#if NETCOREAPP5_0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Utf8String ReadFixedString() => this.ReadFixedString(this.ReadUInt16());
 
@@ -117,7 +119,30 @@ namespace Net.Communication.Incoming.Helpers
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Utf8String ReadLineBrokenString(byte broker) => this.Reader.TryReadTo(out ReadOnlySpan<byte> sequence, broker) ? new Utf8String(sequence) : throw new IndexOutOfRangeException();
+#else
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public string ReadFixedString() => this.ReadFixedString(this.ReadUInt16());
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public string ReadFixedString(long count)
+        {
+            byte[] buffer = new byte[count];
+
+            if (this.Reader.TryCopyTo(buffer))
+            {
+                this.Reader.Advance(count);
+
+                return Encoding.UTF8.GetString(buffer);
+            }
+            else
+            {
+                throw new IndexOutOfRangeException();
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public string ReadLineBrokenString(byte broker) => this.Reader.TryReadTo(out ReadOnlySpan<byte> sequence, broker) ? Encoding.UTF8.GetString(sequence) : throw new IndexOutOfRangeException();
+#endif
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Skip(long amount) => this.Reader.Advance(amount);
 
@@ -183,6 +208,7 @@ namespace Net.Communication.Incoming.Helpers
             return false;
         }
 
+#if NETCOREAPP5_0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryReadFixedString(out Utf8Span value)
         {
@@ -202,6 +228,27 @@ namespace Net.Communication.Incoming.Helpers
 
             return false;
         }
+#else
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryReadFixedString(out string value)
+        {
+            if (this.TryReadUInt16(out ushort length) && this.Remaining >= length)
+            {
+                byte[] bytes = new byte[length];
+
+                if (this.Reader.TryCopyTo(bytes))
+                {
+                    value = Encoding.UTF8.GetString(bytes);
+
+                    return true;
+                }
+            }
+
+            value = default;
+
+            return false;
+        }
+#endif
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PacketReader Clone() => new PacketReader(this.Reader.Sequence.Slice(start: this.Sequence.Start));

@@ -8,8 +8,10 @@ using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.Utf8;
 using System.Threading.Tasks;
+#if NETCOREAPP5_0
+using System.Text.Utf8;
+#endif
 
 namespace Net.Communication.Outgoing.Helpers
 {
@@ -107,6 +109,7 @@ namespace Net.Communication.Outgoing.Helpers
             this.WriteByte((byte)value);
         }
 
+#if NETCOREAPP5_0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteFixedString(Utf8Span value)
         {
@@ -125,6 +128,23 @@ namespace Net.Communication.Outgoing.Helpers
         public void WriteLineBrokenString(Utf8Span value, byte breaker)
         {
             this.WriteBytes(value.Bytes);
+            this.WriteByte(breaker);
+        }
+#endif
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteFixedString(string value)
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(value);
+
+            this.WriteUInt16((ushort)bytes.Length);
+            this.WriteBytes(bytes);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteLineBrokenString(string value, byte breaker)
+        {
+            this.WriteBytes(Encoding.UTF8.GetBytes(value));
             this.WriteByte(breaker);
         }
 
