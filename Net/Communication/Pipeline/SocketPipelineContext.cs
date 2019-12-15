@@ -119,8 +119,7 @@ namespace Net.Communication.Pipeline
             }
         }
 
-        public void SendAndDisconnect<T>(in T packet, string? reason = default) => this.Connection.SendAndDisconnect(packet, reason);
-
+        public void Disconnect(Exception ex) => this.Connection.Disconnect(ex);
         public void Disconnect(string? reason = default) => this.Connection.Disconnect(reason);
     }
 }

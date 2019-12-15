@@ -224,9 +224,9 @@ namespace Net.Communication.Managers
 
         private void RebuildHandlers()
         {
-            IDictionary<T, IIncomingPacketParser> parsers = new Dictionary<T, IIncomingPacketParser>();
+            Dictionary<T, IIncomingPacketParser> parsers = new Dictionary<T, IIncomingPacketParser>(this.IncomingParsers.Count);
 
-            IDictionary<Type, (T, IIncomingPacketParser)> parsersToConsumer = new Dictionary<Type, (T, IIncomingPacketParser)>();
+            Dictionary<Type, (T, IIncomingPacketParser)> parsersToConsumer = new Dictionary<Type, (T, IIncomingPacketParser)>();
 
             foreach (KeyValuePair<Type, ParserData> parser in this.IncomingParsersType.OrderByDescending((kvp) => kvp.Value.Order))
             {
@@ -241,9 +241,9 @@ namespace Net.Communication.Managers
                 }
             }
 
-            IDictionary<Type, IIncomingPacketHandler> handlers = new Dictionary<Type, IIncomingPacketHandler>();
+            Dictionary<Type, IIncomingPacketHandler> handlers = new Dictionary<Type, IIncomingPacketHandler>(this.HandlersType.Count);
 
-            IDictionary<T, IIncomingPacketConsumer> consumers = new Dictionary<T, IIncomingPacketConsumer>();
+            Dictionary<T, IIncomingPacketConsumer> consumers = new Dictionary<T, IIncomingPacketConsumer>(this.IncomingConsumers.Count);
 
             foreach (KeyValuePair<Type, HandlerData> handler in this.IncomingHandlersType.OrderByDescending((kvp) => kvp.Value.Order))
             {
@@ -288,7 +288,7 @@ namespace Net.Communication.Managers
                 consumers.TryAdd(parser.Value.Id, consumer);
             }
 
-            IDictionary<Type, IOutgoingPacketComposer> composers = new Dictionary<Type, IOutgoingPacketComposer>();
+            Dictionary<Type, IOutgoingPacketComposer> composers = new Dictionary<Type, IOutgoingPacketComposer>(this.OutgoingComposers.Count);
 
             foreach (KeyValuePair<Type, ComposerData> composer in this.OutgoingComposersType.OrderByDescending((kvp) => kvp.Value.Order))
             {
@@ -299,6 +299,13 @@ namespace Net.Communication.Managers
                     composers.TryAdd(handledType, composerInstance);
                 }
             }
+
+            parsers.TrimExcess();
+            handlers.TrimExcess();
+
+            consumers.TrimExcess();
+
+            composers.TrimExcess();
 
             this.IncomingParsers = parsers;
             this.IncomingHandlers = handlers;

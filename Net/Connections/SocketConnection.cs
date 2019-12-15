@@ -19,6 +19,7 @@ using Net.Tracking;
 using log4net;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using Nito.AsyncEx;
 
 namespace Net.Connections
 {
@@ -54,7 +55,7 @@ namespace Net.Connections
 
         private SpinLock SendPipeLock;
 
-        private SemaphoreSlim? AsyncReadHandlesSemaphore;
+        private AsyncCountdownEvent? AsyncTaskCount;
 
         public SocketPipeline Pipeline { get; }
 
@@ -164,7 +165,7 @@ namespace Net.Connections
 
                 this.SendPipeLock = new SpinLock();
 
-                this.AsyncReadHandlesSemaphore = new SemaphoreSlim(1, 1);
+                this.AsyncTaskCount = new AsyncCountdownEvent(0);
 
                 SocketConnection.PIPE_OPTIONS.WriterScheduler.Schedule((o) => _ = this.Receive(), this);
                 SocketConnection.PIPE_OPTIONS.ReaderScheduler.Schedule((o) => _ = this.Send(), this);
@@ -231,9 +232,7 @@ namespace Net.Connections
                     ReadResult readResult = await this.ReceivePipe.Reader.ReadAsync().ConfigureAwait(false);
                     if (readResult.IsCanceled || readResult.IsCompleted)
                     {
-                        //Wait here for maxium of 10s to prevent long running task messing up due to disconnection in the middle
-                        await this.AsyncReadHandlesSemaphore.WaitAsync(TimeSpan.FromSeconds(10));
-
+                        await this.AsyncTaskCount.WaitAsync().ConfigureAwait(false);
                         break;
                     }
 
@@ -282,7 +281,7 @@ namespace Net.Connections
 
                     foreach (ReadOnlyMemory<byte> memory in buffer)
                     {
-                        await this.Socket.SendAsync(memory, SocketFlags.None);
+                        await this.Socket.SendAsync(memory, SocketFlags.None).ConfigureAwait(false);
                     }
 
                     Interlocked.Add(ref NetworkTracking.UpstreamBytes, buffer.Length);
@@ -356,84 +355,54 @@ namespace Net.Connections
             }
         }
 
-        public void SendAndDisconnect<T>(in T packet, string? reason = default)
+        public void StartAsyncTask()
         {
-            if (!this.Disconnected)
-            {
-                SocketPipelineContext context = new SocketPipelineContext(this);
-                context.Send(packet);
+            this.AsyncTaskCount.AddCount();
+        }
 
-                this.Disconnect(reason);
+        public void EndAsyncTask()
+        {
+            this.AsyncTaskCount.Signal();
+        }
+
+        public async Task WrapTask(Task task)
+        {
+            if (task.IsCompleted)
+            {
+                return;
+            }
+
+            this.AsyncTaskCount.AddCount();
+
+            try
+            {
+                await task.ConfigureAwait(false);
+            }
+            finally
+            {
+                this.EndAsyncTask();
             }
         }
 
-        public void SendAndDisconnect(ReadOnlyMemory<byte> bytes, string? reason = default)
+        public async Task WrapTask(Func<Task> task)
         {
-            if (!this.Disconnected)
+            this.AsyncTaskCount.AddCount();
+
+            try
             {
-                this.Send(bytes);
-                this.Disconnect(reason);
+                await Task.Run(task).ConfigureAwait(false);
             }
-        }
-
-        public Task HandleTaskAsync(Action action)
-        {
-            if (this.AsyncReadHandlesSemaphore == null)
+            finally
             {
-                throw new NotSupportedException();
+                this.EndAsyncTask();
             }
-
-            return this.AsyncReadHandlesSemaphore.WaitAsync().ContinueWith((t) =>
-            {
-                try
-                {
-                    action.Invoke();
-                }
-                catch(Exception ex)
-                {
-                    this.Disconnect(ex);
-                }
-                finally
-                {
-                    this.AsyncReadHandlesSemaphore.Release();
-                }
-            });
-        }
-
-        public Task HandleTaskAsync(Func<Task> action)
-        {
-            if (this.AsyncReadHandlesSemaphore == null)
-            {
-                throw new NotSupportedException();
-            }
-
-            return this.AsyncReadHandlesSemaphore.WaitAsync().ContinueWith(async (t) =>
-            {
-                try
-                {
-                    await action.Invoke();
-                }
-                catch (Exception ex)
-                {
-                    this.Disconnect(ex);
-                }
-                finally
-                {
-                    this.AsyncReadHandlesSemaphore.Release();
-                }
-            });
         }
 
         public void Disconnect(Exception ex)
         {
-            if (this.DisconnectReason == null)
-            {
-                SocketConnection.Logger.Error("Socket disconnect due to critical exception", ex);
-            }
-            else
-            {
-                SocketConnection.Logger.Error("Critical exception after socket disconnection", ex);
-            }
+            SocketConnection.Logger.Error(this.DisconnectReason == null
+                ? "Socket disconnect due to critical exception"
+                : "Critical exception after socket disconnection", ex);
 
             this.Disconnect("Critical exception");
         }
@@ -520,14 +489,9 @@ namespace Net.Connections
 
         private void DisconnectNow(Exception ex)
         {
-            if (this.DisconnectReason == null)
-            {
-                SocketConnection.Logger.Error("Socket disconnect due to critical exception", ex);
-            }
-            else
-            {
-                SocketConnection.Logger.Error("Critical exception after socket disconnection", ex);
-            }
+            SocketConnection.Logger.Error(this.DisconnectReason == null
+                ? "Socket disconnect due to critical exception"
+                : "Critical exception after socket disconnection", ex);
 
             this.DisconnectNow("Critical error (Forced)");
         }
@@ -608,7 +572,6 @@ namespace Net.Connections
 
             //Now we get rid of extra stuff
             this.ReceiveAsyncEventArgs?.Dispose();
-            this.AsyncReadHandlesSemaphore?.Dispose();
 
             GC.SuppressFinalize(this);
         }
