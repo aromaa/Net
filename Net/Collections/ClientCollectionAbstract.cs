@@ -62,6 +62,27 @@ namespace Net.Collections
 
         public uint Count => (uint)this.BackingDictionary.Count;
 
+        public void Send<T>(T packet)
+        {
+            foreach(SocketConnection connection in this.BackingDictionary.Values)
+            {
+                connection.Send(packet);
+            }
+        }
+
+        public void Send<T>(T packet, SocketConnection except)
+        {
+            foreach (SocketConnection connection in this.BackingDictionary.Values)
+            {
+                if (connection == except)
+                {
+                    continue;
+                }
+
+                connection.Send(packet);
+            }
+        }
+
         public ICollection<SocketConnection> Values => this.BackingDictionary.Values;
     }
 }
