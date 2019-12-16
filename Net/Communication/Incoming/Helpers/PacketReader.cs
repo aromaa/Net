@@ -75,6 +75,15 @@ namespace Net.Communication.Incoming.Helpers
         public int ReadInt32() => this.Reader.TryReadBigEndian(out int value) ? value : throw new IndexOutOfRangeException();
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public uint ReadUInt32() => (uint)this.ReadInt32();
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public float ReadSingle() => BitConverter.Int32BitsToSingle(this.ReadInt32());
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public long ReadInt64() => this.Reader.TryReadBigEndian(out long value) ? value : throw new IndexOutOfRangeException();
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ulong ReadUInt64() => (ulong)this.ReadInt32();
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public double ReadDouble() => BitConverter.Int64BitsToDouble(this.ReadInt64());
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public uint Read7BitEncodedInteger()
