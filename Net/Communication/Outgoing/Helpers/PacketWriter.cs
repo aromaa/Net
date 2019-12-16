@@ -86,15 +86,24 @@ namespace Net.Communication.Outgoing.Helpers
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteInt32(int value) => BinaryPrimitives.WriteInt32BigEndian(this.GetSpan(4), value);
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteUInt32(uint value) => BinaryPrimitives.WriteUInt32BigEndian(this.GetSpan(4), value);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteInt16(short value) => BinaryPrimitives.WriteInt16BigEndian(this.GetSpan(2), value);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteUInt16(ushort value) => BinaryPrimitives.WriteUInt16BigEndian(this.GetSpan(2), value);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteInt32(int value) => BinaryPrimitives.WriteInt32BigEndian(this.GetSpan(4), value);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteUInt32(uint value) => BinaryPrimitives.WriteUInt32BigEndian(this.GetSpan(4), value);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteSingle(float value) => this.WriteInt32(BitConverter.SingleToInt32Bits(value));
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteInt64(long value) => BinaryPrimitives.WriteInt64BigEndian(this.GetSpan(4), value);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteUInt64(ulong value) => BinaryPrimitives.WriteUInt64BigEndian(this.GetSpan(4), value);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteDouble(double value) => this.WriteInt64(BitConverter.DoubleToInt64Bits(value));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Write7BitEncodedInteger(uint value)
