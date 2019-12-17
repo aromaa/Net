@@ -32,7 +32,7 @@ namespace Net.Collections
         }
 
         public bool TryRemove(SocketConnection connection) => this.TryRemove(connection.Id, out _);
-        public bool TryRemove(uint id, out SocketConnection connection) => this.TryRemove(id, out connection);
+        public bool TryRemove(uint id, out SocketConnection connection) => this.TryRemove(id, out connection, CilentCollectionRemoveReason.Manual);
 
         protected bool TryRemove(SocketConnection connection, CilentCollectionRemoveReason reason) => this.TryRemove(connection.Id, out _, reason);
         protected bool TryRemove(uint id, out SocketConnection connection, CilentCollectionRemoveReason reason)
