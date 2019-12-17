@@ -64,7 +64,7 @@ namespace Net.Communication.Managers
                 foreach(Type type in assembly.GetTypes())
                 {
                     PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>();
-                    if (registerAttribute == null || !registerAttribute.Enabled || registerAttribute.DefaultManager != this.GetType() || type.GetCustomAttribute<PacketManagerDefaultAttribute>() == null)
+                    if ((registerAttribute == null || !registerAttribute.Enabled || registerAttribute.DefaultManager != this.GetType()) && (type.GetCustomAttribute<PacketManagerDefaultAttribute>() == null))
                     {
                         continue;
                     }
