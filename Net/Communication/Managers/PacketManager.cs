@@ -181,7 +181,7 @@ namespace Net.Communication.Managers
             this.IncomingConsumers = consumers;
         }
 
-        protected IIncomingPacketConsumer BuildConsumer(Type type, IIncomingPacketParser parser, IIncomingPacketHandler? handler)
+        protected virtual IIncomingPacketConsumer BuildConsumer(Type type, IIncomingPacketParser parser, IIncomingPacketHandler? handler)
         {
             if (handler != null)
             {
@@ -190,8 +190,8 @@ namespace Net.Communication.Managers
 
                 return (IIncomingPacketConsumer)Activator.CreateInstance(consumerType, new object[]
                 {
-                parser,
-                handler
+                    parser,
+                    handler
                 })!;
             }
             else
