@@ -23,7 +23,7 @@ namespace Net.Collections
         {
             try
             {
-                this.TryRemove(connection);
+                this.TryRemove(connection, CilentCollectionRemoveReason.Disconnect);
             }
             catch (Exception ex)
             {
@@ -32,7 +32,10 @@ namespace Net.Collections
         }
 
         public bool TryRemove(SocketConnection connection) => this.TryRemove(connection.Id, out _);
-        public bool TryRemove(uint id, out SocketConnection connection)
+        public bool TryRemove(uint id, out SocketConnection connection) => this.TryRemove(id, out connection);
+
+        protected bool TryRemove(SocketConnection connection, CilentCollectionRemoveReason reason) => this.TryRemove(connection.Id, out _, reason);
+        protected bool TryRemove(uint id, out SocketConnection connection, CilentCollectionRemoveReason reason)
         {
             //Can this be done without locking?
             lock (this.BackingDictionary)
@@ -41,7 +44,7 @@ namespace Net.Collections
                 {
                     connection.DisconnectEvent -= this.OnDisconnect;
 
-                    this.OnRemoved(connection);
+                    this.OnRemoved(connection, reason);
 
                     return true;
                 }
@@ -50,7 +53,7 @@ namespace Net.Collections
             return false;
         }
 
-        protected virtual void OnRemoved(SocketConnection connection)
+        protected virtual void OnRemoved(SocketConnection connection, CilentCollectionRemoveReason reason)
         {
 
         }
