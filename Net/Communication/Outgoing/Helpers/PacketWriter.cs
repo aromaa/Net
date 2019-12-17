@@ -99,9 +99,9 @@ namespace Net.Communication.Outgoing.Helpers
         public void WriteSingle(float value) => this.WriteInt32(BitConverter.SingleToInt32Bits(value));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteInt64(long value) => BinaryPrimitives.WriteInt64BigEndian(this.GetSpan(4), value);
+        public void WriteInt64(long value) => BinaryPrimitives.WriteInt64BigEndian(this.GetSpan(8), value);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteUInt64(ulong value) => BinaryPrimitives.WriteUInt64BigEndian(this.GetSpan(4), value);
+        public void WriteUInt64(ulong value) => BinaryPrimitives.WriteUInt64BigEndian(this.GetSpan(8), value);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteDouble(double value) => this.WriteInt64(BitConverter.DoubleToInt64Bits(value));
 
