@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Net.Communication.Incoming.Packet
+namespace Net.Communication.Incoming.Packet.Consumer
 {
     public interface IIncomingPacketConsumer
     {

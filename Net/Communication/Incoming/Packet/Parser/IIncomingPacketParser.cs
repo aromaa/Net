@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace Net.Communication.Incoming.Packet
+namespace Net.Communication.Incoming.Packet.Parser
 {
     public interface IIncomingPacketParser<T> : IIncomingPacketParser
     {

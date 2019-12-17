@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using Net.Communication.Incoming.Helpers;
+using Net.Communication.Incoming.Packet.Handler;
+using Net.Communication.Incoming.Packet.Parser;
 using Net.Communication.Pipeline;
 
-namespace Net.Communication.Incoming.Packet
+namespace Net.Communication.Incoming.Packet.Consumer
 {
     public class IncomingPacketConsumer<T> : IIncomingPacketConsumer, IIncomingPacketParser<T>, IIncomingPacketHandler<T>
     {
