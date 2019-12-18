@@ -49,6 +49,7 @@ namespace Net.Connections
         protected Socket Socket { get; }
 
         private SocketAwaitableEventArgs? ReceiveAsyncEventArgs;
+        private SocketAwaitableEventArgs? SendAsyncEventArgs;
 
         private Pipe? ReceivePipe;
         private Pipe? SendPipe;
@@ -159,6 +160,7 @@ namespace Net.Connections
             if (!this.Disposing && this.ReceiveAsyncEventArgs == null)
             {
                 this.ReceiveAsyncEventArgs = new SocketAwaitableEventArgs(SocketConnection.PIPE_OPTIONS.WriterScheduler);
+                this.SendAsyncEventArgs = new SocketAwaitableEventArgs(SocketConnection.PIPE_OPTIONS.ReaderScheduler);
 
                 this.ReceivePipe = new Pipe(SocketConnection.PIPE_OPTIONS);
                 this.SendPipe = new Pipe(SocketConnection.PIPE_OPTIONS);
@@ -170,7 +172,7 @@ namespace Net.Connections
                 SocketConnection.PIPE_OPTIONS.WriterScheduler.Schedule((o) => _ = this.Receive(), this);
                 SocketConnection.PIPE_OPTIONS.ReaderScheduler.Schedule((o) => _ = this.Send(), this);
 
-                _ = this.HandleData();
+                SocketConnection.PIPE_OPTIONS.ReaderScheduler.Schedule((o) => _ = this.HandleData(), this);
             }
         }
 
@@ -278,7 +280,19 @@ namespace Net.Connections
 
                     foreach (ReadOnlyMemory<byte> memory in buffer)
                     {
-                        await this.Socket.SendAsync(memory, SocketFlags.None).ConfigureAwait(false);
+                        this.SendAsyncEventArgs!.SetBuffer(MemoryMarshal.AsMemory(memory));
+
+                        if (this.Socket.SendAsync(this.SendAsyncEventArgs))
+                        {
+                            await this.SendAsyncEventArgs;
+                        }
+
+                        if (this.SendAsyncEventArgs.SocketError.IsCritical())
+                        {
+                            this.Disconnect($"Send error: {this.SendAsyncEventArgs.SocketError}");
+
+                            break;
+                        }
                     }
 
                     Interlocked.Add(ref NetworkTracking.UpstreamBytes, buffer.Length);
@@ -569,6 +583,7 @@ namespace Net.Connections
 
             //Now we get rid of extra stuff
             this.ReceiveAsyncEventArgs?.Dispose();
+            this.SendAsyncEventArgs?.Dispose();
 
             GC.SuppressFinalize(this);
         }
