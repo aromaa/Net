@@ -176,11 +176,11 @@ namespace Net.Connections
 
         private async Task Receive()
         {
-            while (!this.Disposing)
+            try
             {
-                try
+                while (!this.Disposing)
                 {
-                    this.ReceiveAsyncEventArgs.SetBuffer(this.ReceivePipe.Writer.GetMemory());
+                    this.ReceiveAsyncEventArgs!.SetBuffer(this.ReceivePipe!.Writer.GetMemory());
 
                     int receivedBytes = this.Socket.ReceiveAsync(this.ReceiveAsyncEventArgs) ? await this.ReceiveAsyncEventArgs : this.ReceiveAsyncEventArgs.BytesTransferred;
 
@@ -212,12 +212,10 @@ namespace Net.Connections
                         break;
                     }
                 }
-                catch (Exception ex)
-                {
-                    this.Disconnect(ex);
-
-                    break;
-                }
+            }
+            catch (Exception ex)
+            {
+                this.Disconnect(ex);
             }
 
             this.DisconnectCloseReceive();
@@ -225,14 +223,15 @@ namespace Net.Connections
 
         private async Task HandleData()
         {
-            while (!this.Disconnected)
+            try
             {
-                try
+                while (!this.Disconnected)
                 {
-                    ReadResult readResult = await this.ReceivePipe.Reader.ReadAsync().ConfigureAwait(false);
+                    ReadResult readResult = await this.ReceivePipe!.Reader.ReadAsync().ConfigureAwait(false);
                     if (readResult.IsCanceled || readResult.IsCompleted)
                     {
-                        await this.AsyncTaskCount.WaitAsync().ConfigureAwait(false);
+                        await this.AsyncTaskCount!.WaitAsync().ConfigureAwait(false);
+
                         break;
                     }
 
@@ -254,12 +253,10 @@ namespace Net.Connections
 
                     this.ReceivePipe.Reader.AdvanceTo(buffer.Start, buffer.End);
                 }
-                catch (Exception ex)
-                {
-                    this.Disconnect(ex); 
-
-                    break;
-                }
+            }
+            catch (Exception ex)
+            {
+                this.Disconnect(ex);
             }
 
             this.DisconnectCloseSend(); //Now close send
@@ -267,11 +264,11 @@ namespace Net.Connections
 
         private async Task Send()
         {
-            while (!this.Disconnected)
+            try
             {
-                try
+                while (!this.Disconnected)
                 {
-                    ReadResult readResult = await this.SendPipe.Reader.ReadAsync().ConfigureAwait(false);
+                    ReadResult readResult = await this.SendPipe!.Reader.ReadAsync().ConfigureAwait(false);
                     if (readResult.IsCanceled || readResult.IsCompleted)
                     {
                         break;
@@ -288,14 +285,12 @@ namespace Net.Connections
 
                     this.SendPipe.Reader.AdvanceTo(buffer.End);
                 }
-                catch (Exception ex)
-                {
-                    this.DisconnectNow(ex);
-
-                    break;
-                }
             }
-            
+            catch (Exception ex)
+            {
+                this.Disconnect(ex);
+            }
+
             this.DisconnectCloseFinal();
         }
 
@@ -328,8 +323,15 @@ namespace Net.Connections
         {
             if (!this.Disconnected)
             {
-                SocketPipelineContext context = new SocketPipelineContext(this);
-                context.Send(packet);
+                try
+                {
+                    SocketPipelineContext context = new SocketPipelineContext(this);
+                    context.Send(packet);
+                }
+                catch(Exception ex)
+                {
+                    this.Disconnect(ex);
+                }
             }
         }
 
@@ -344,6 +346,10 @@ namespace Net.Connections
                     this.SendPipeLock.Enter(ref lockTaken);
 
                     this.SendPipe.Writer.WriteAsync(bytes).GetAwaiter().GetResult();
+                }
+                catch(Exception ex)
+                {
+                    this.Disconnect(ex);
                 }
                 finally
                 {
@@ -485,15 +491,6 @@ namespace Net.Connections
             }
 
             this.Dispose();
-        }
-
-        private void DisconnectNow(Exception ex)
-        {
-            SocketConnection.Logger.Error(this.DisconnectReason == null
-                ? "Socket disconnect due to critical exception"
-                : "Critical exception after socket disconnection", ex);
-
-            this.DisconnectNow("Critical error (Forced)");
         }
 
         internal void DisconnectNow(string? reason = default)
