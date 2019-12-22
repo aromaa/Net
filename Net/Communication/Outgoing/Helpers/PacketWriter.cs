@@ -9,13 +9,10 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-#if NETCOREAPP5_0
-using System.Text.Utf8;
-#endif
 
 namespace Net.Communication.Outgoing.Helpers
 {
-    public struct PacketWriter
+    public partial struct PacketWriter
     {
         internal PipeWriter PipeWriter { get; }
 
@@ -31,6 +28,7 @@ namespace Net.Communication.Outgoing.Helpers
 
         public int Length
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 this.CheckReleased();
@@ -118,29 +116,6 @@ namespace Net.Communication.Outgoing.Helpers
             this.WriteByte((byte)value);
         }
 
-#if NETCOREAPP5_0
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteFixedString(Utf8Span value)
-        {
-            this.WriteUInt16((ushort)value.Bytes.Length);
-            this.WriteBytes(value.Bytes);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteFixedString(Utf8String value)
-        {
-            this.WriteUInt16((ushort)value.Bytes.Length);
-            this.WriteBytes(value.Bytes);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteLineBrokenString(Utf8Span value, byte breaker)
-        {
-            this.WriteBytes(value.Bytes);
-            this.WriteByte(breaker);
-        }
-#endif
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteFixedString(string value)
         {
@@ -171,6 +146,7 @@ namespace Net.Communication.Outgoing.Helpers
             return span;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void CheckReleased()
         {
             if (this.Pointer == -1)
@@ -208,19 +184,5 @@ namespace Net.Communication.Outgoing.Helpers
 
             public Span<byte> Span => this.Buffer;
         }
-
-    //public ref struct Span
-    //{
-    //    private Span<byte> Buffer { get; }
-
-    //    internal Span(Span<byte> buffer)
-    //    {
-    //        this.Buffer = buffer;
-    //    }
-
-    //    public ref byte this[int index] => ref this.Buffer[index];
-
-    //    public Span<byte> BufferSpan => this.Buffer;
-    //}
     }
 }

@@ -6,14 +6,10 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
-#if NETCOREAPP5_0
-using System.Text.Utf8;
-using System.Buffers.Native;
-#endif
 
 namespace Net.Communication.Incoming.Helpers
 {
-    public ref struct PacketReader
+    public ref partial struct PacketReader
     {
         private SequenceReader<byte> Reader;
 
@@ -38,18 +34,20 @@ namespace Net.Communication.Incoming.Helpers
         public byte ReadByte() => this.Reader.TryRead(out byte value) ? value : throw new IndexOutOfRangeException();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ReadOnlySpan<byte> ReadBytes(int amount)
+        public ReadOnlySpan<byte> ReadBytes(long amount)
         {
-            byte[] bytes = new byte[amount];
+            ReadOnlySequence<byte> sequence = this.Reader.Sequence.Slice(start: this.Reader.Position, amount);
 
-            if (!this.Reader.TryCopyTo(bytes))
+            this.Reader.Advance(amount);
+
+            if (sequence.IsSingleSegment)
             {
-                throw new IndexOutOfRangeException();
+                return sequence.FirstSpan;
             }
-
-            this.Reader.Advance(bytes.Length);
-
-            return bytes;
+            else
+            {
+                return sequence.ToArray();
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -105,69 +103,30 @@ namespace Net.Communication.Incoming.Helpers
 
             return value;
         }
-#if NETCOREAPP5_0
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Utf8String ReadFixedString() => this.ReadFixedString(this.ReadUInt16());
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Utf8String ReadFixedString(long count)
-        {
-            byte[] buffer = new byte[count];
-
-            if (this.Reader.TryCopyTo(buffer))
-            {
-                this.Reader.Advance(count);
-
-                return new Utf8String(buffer);
-            }
-            else
-            {
-                throw new IndexOutOfRangeException();
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Utf8String ReadLineBrokenString(byte broker) => this.Reader.TryReadTo(out ReadOnlySpan<byte> sequence, broker) ? new Utf8String(sequence) : throw new IndexOutOfRangeException();
-#else
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string ReadFixedString() => this.ReadFixedString(this.ReadUInt16());
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public string ReadFixedString(long count)
-        {
-            byte[] buffer = new byte[count];
-
-            if (this.Reader.TryCopyTo(buffer))
-            {
-                this.Reader.Advance(count);
-
-                return Encoding.UTF8.GetString(buffer);
-            }
-            else
-            {
-                throw new IndexOutOfRangeException();
-            }
-        }
+        public string ReadFixedString(long count) => Encoding.UTF8.GetString(this.ReadBytes(count));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string ReadLineBrokenString(byte broker) => this.Reader.TryReadTo(out ReadOnlySpan<byte> sequence, broker) ? Encoding.UTF8.GetString(sequence) : throw new IndexOutOfRangeException();
-#endif
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Skip(long amount) => this.Reader.Advance(amount);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryReadBytes(int amount, out ReadOnlySpan<byte> span)
+        public bool TryReadBytes(long amount, out ReadOnlySpan<byte> span)
         {
-            byte[] bytes = new byte[amount];
-
-            if (this.Reader.TryCopyTo(bytes))
+            if (this.Remaining < amount)
             {
-                span = bytes;
+                span = default;
 
-                return true;
+                return false;
             }
 
-            span = default;
+            span = this.ReadBytes(amount);
 
             return false;
         }
@@ -217,47 +176,20 @@ namespace Net.Communication.Incoming.Helpers
             return false;
         }
 
-#if NETCOREAPP5_0
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryReadFixedString(out Utf8Span value)
-        {
-            if (this.TryReadUInt16(out ushort length) && this.Remaining >= length)
-            {
-                byte[] bytes = new byte[length];
-
-                if (this.Reader.TryCopyTo(bytes))
-                {
-                    value = new Utf8Span(bytes);
-
-                    return true;
-                }
-            }
-
-            value = default;
-
-            return false;
-        }
-#else
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryReadFixedString(out string value)
         {
             if (this.TryReadUInt16(out ushort length) && this.Remaining >= length)
             {
-                byte[] bytes = new byte[length];
+                value = this.ReadFixedString(length);
 
-                if (this.Reader.TryCopyTo(bytes))
-                {
-                    value = Encoding.UTF8.GetString(bytes);
-
-                    return true;
-                }
+                return true;
             }
 
-            value = default;
+            value = string.Empty;
 
             return false;
         }
-#endif
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PacketReader Clone() => new PacketReader(this.Reader.Sequence.Slice(start: this.Sequence.Start));

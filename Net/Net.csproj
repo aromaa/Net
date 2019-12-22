@@ -13,4 +13,8 @@
     <PackageReference Include="System.IO.Pipelines" Version="4.7.0" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.7.0" />
   </ItemGroup>
+  
+  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp5.0'">
+    <PackageReference Include="System.Utf8String.Experimental" Version="5.0.0-alpha1.19523.8" />
+  </ItemGroup>
 </Project>
