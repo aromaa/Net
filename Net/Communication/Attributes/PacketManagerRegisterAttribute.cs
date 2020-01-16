@@ -11,6 +11,11 @@ namespace Net.Communication.Attributes
         public bool Enabled { get; }
         public int Order { get; }
 
+        public PacketManagerRegisterAttribute(bool enabled = true, int order = 0) : this(null, enabled, order)
+        {
+
+        }
+
         public PacketManagerRegisterAttribute(Type? defaultManager) : this(defaultManager, enabled: true, order: 0)
         {
 

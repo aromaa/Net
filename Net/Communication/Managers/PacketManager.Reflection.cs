@@ -59,14 +59,25 @@ namespace Net.Communication.Managers
 
         private void FindPacketManagerAttributes(bool rebuildHandlers = true)
         {
+            string[] managerTags = this.GetType().GetCustomAttribute<PacketManagerTagsAttribute>()?.Tags ?? Array.Empty<string>();
+
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 foreach(Type type in assembly.GetTypes())
                 {
                     PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>();
-                    if ((registerAttribute == null || !registerAttribute.Enabled || registerAttribute.DefaultManager != this.GetType()) && (type.GetCustomAttribute<PacketManagerDefaultAttribute>() == null))
+                    if (registerAttribute == null)
                     {
                         continue;
+                    }
+
+                    if (!registerAttribute.Enabled || registerAttribute.DefaultManager != this.GetType())
+                    {
+                        string[] targetTags = type.GetCustomAttribute<PacketManagerTagsAttribute>()?.Tags ?? Array.Empty<string>();
+                        if (!targetTags.Intersect(managerTags).Any())
+                        {
+                            continue;
+                        }
                     }
 
                     if (typeof(IIncomingPacketParser).IsAssignableFrom(type))
