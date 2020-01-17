@@ -20,6 +20,7 @@ using log4net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Nito.AsyncEx;
+using Net.Connections.Metadata;
 
 namespace Net.Connections
 {
@@ -59,6 +60,8 @@ namespace Net.Connections
         private AsyncCountdownEvent? AsyncTaskCount;
 
         public SocketPipeline Pipeline { get; }
+
+        public MetadataMap Metadata { get; }
 
         private long Timeout;
 
@@ -105,6 +108,8 @@ namespace Net.Connections
             this.Socket = socket;
 
             this.Pipeline = new SocketPipeline();
+
+            this.Metadata = new MetadataMap();
 
             this.Timeout = Environment.TickCount64;
 
