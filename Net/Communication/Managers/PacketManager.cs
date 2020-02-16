@@ -7,6 +7,8 @@ using Net.Communication.Incoming.Packet.Parser;
 using Net.Communication.Outgoing.Helpers;
 using Net.Communication.Outgoing.Packet;
 using Net.Communication.Pipeline;
+using Ninject;
+using Ninject.Parameters;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -18,6 +20,8 @@ namespace Net.Communication.Managers
 {
     public abstract partial class PacketManager<T> where T : notnull
     {
+        protected IKernel? Kernel { get; }
+
         private IDictionary<Type, ParserData> IncomingParsersType;
         private IDictionary<Type, HandlerData> IncomingHandlersType;
 
@@ -30,8 +34,10 @@ namespace Net.Communication.Managers
 
         private IDictionary<T, IIncomingPacketConsumer> IncomingConsumers;
 
-        public PacketManager()
+        public PacketManager(IKernel? kernel = null)
         {
+            this.Kernel = kernel;
+
             this.IncomingParsersType = new Dictionary<Type, ParserData>();
             this.IncomingHandlersType = new Dictionary<Type, HandlerData>();
 
@@ -113,7 +119,7 @@ namespace Net.Communication.Managers
 
             foreach (KeyValuePair<Type, ParserData> parser in this.IncomingParsersType.OrderByDescending((kvp) => kvp.Value.Order))
             {
-                IIncomingPacketParser parserInstance = (IIncomingPacketParser)Activator.CreateInstance(parser.Key, true)!;
+                IIncomingPacketParser parserInstance = (IIncomingPacketParser)this.Kernel.Get(parser.Key);
 
                 if (parsers.TryAdd(parser.Value.Id, parserInstance))
                 {
@@ -130,7 +136,7 @@ namespace Net.Communication.Managers
 
             foreach (KeyValuePair<Type, HandlerData> handler in this.IncomingHandlersType.OrderByDescending((kvp) => kvp.Value.Order))
             {
-                IIncomingPacketHandler handlerInstance = (IIncomingPacketHandler)Activator.CreateInstance(handler.Key, true)!;
+                IIncomingPacketHandler handlerInstance = (IIncomingPacketHandler)this.Kernel.Get(handler.Key);
 
                 foreach (Type handledType in handler.Value.HandlesTypes)
                 {
@@ -158,7 +164,7 @@ namespace Net.Communication.Managers
 
             foreach (KeyValuePair<Type, ComposerData> composer in this.OutgoingComposersType.OrderByDescending((kvp) => kvp.Value.Order))
             {
-                IOutgoingPacketComposer composerInstance = (IOutgoingPacketComposer)Activator.CreateInstance(composer.Key, true)!;
+                IOutgoingPacketComposer composerInstance = (IOutgoingPacketComposer)this.Kernel.Get(composer.Key);
 
                 foreach (Type handledType in composer.Value.HandlesTypes)
                 {
