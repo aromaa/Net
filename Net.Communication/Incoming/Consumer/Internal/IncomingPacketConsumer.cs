@@ -1,0 +1,30 @@
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using Net.Buffers;
+using Net.Communication.Incoming.Handler;
+using Net.Communication.Incoming.Parser;
+using Net.Pipeline.Socket;
+
+namespace Net.Communication.Incoming.Consumer.Internal
+{
+    internal sealed class IncomingPacketConsumer<T> : IIncomingPacketConsumer, IIncomingPacketParser<T>, IIncomingPacketHandler<T>
+    {
+        public IIncomingPacketParser<T> Parser { get; }
+        public IIncomingPacketHandler<T> Handler { get; }
+
+        public IncomingPacketConsumer(IIncomingPacketParser<T> parser, IIncomingPacketHandler<T> handler)
+        {
+            this.Parser = parser;
+            this.Handler = handler;
+        }
+
+        public void Read(ref SocketPipelineContext context, ref PacketReader reader) => this.Handle(ref context, this.Parse(ref reader));
+
+        [return: NotNull]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T Parse(ref PacketReader reader) => this.Parser.Parse(ref reader);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Handle(ref SocketPipelineContext context, in T packet) => this.Handler.Handle(ref context, packet);
+    }
+}

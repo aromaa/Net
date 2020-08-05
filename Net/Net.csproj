@@ -1,21 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.0</TargetFramework>
-    <LangVersion>8.0</LangVersion>
+    <TargetFramework>net5.0</TargetFramework>
+    <LangVersion>preview</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>enable</Nullable>
-    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="log4net" Version="2.0.8" />
-    <PackageReference Include="Ninject" Version="3.3.4" />
-    <PackageReference Include="Nito.AsyncEx" Version="5.0.0" />
-    <PackageReference Include="System.IO.Pipelines" Version="4.7.0" />
-    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.7.0" />
+    <PackageReference Include="System.IO.Pipelines" Version="4.7.2" />
   </ItemGroup>
-  
-  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp5.0'">
-    <PackageReference Include="System.Utf8String.Experimental" Version="5.0.0-alpha1.19523.8" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\Net.Buffers\Net.Buffers.csproj" />
+    <ProjectReference Include="..\Net.Pipeline\Net.Pipeline.csproj" />
+    <ProjectReference Include="..\Net.Tracking\Net.Tracking.csproj" />
   </ItemGroup>
 </Project>
