@@ -9,11 +9,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Net.Buffers;
 using Net.Buffers.Extensions;
-using Net.Pipeline.Socket;
 using Net.Sockets.Async;
 using Net.Sockets.Pipeline;
 using Net.Sockets.Udp;
-using Net.Tracking;
 using Net.Utils;
 
 namespace Net.Sockets.Listener.Udp
@@ -90,11 +88,6 @@ namespace Net.Sockets.Listener.Udp
 
                 writer.Advance(receivedBytes + this.SourceHeaderLength);
 
-                if (NetworkTracking.IsEnabled)
-                {
-                    Interlocked.Add(ref NetworkTracking.DownstreamBytes, receivedBytes);
-                }
-
                 FlushResult flushResult = await writer.FlushAsync().ConfigureAwait(false);
                 if (flushResult.IsCompleted || flushResult.IsCanceled)
                 {
@@ -114,8 +107,7 @@ namespace Net.Sockets.Listener.Udp
             SocketAddress socketAddress = new SocketAddress(sourceAddress, port);
             DatagramPacket datagram = new DatagramPacket(socketAddress, reader.ReadBytes(length));
 
-            SocketPipelineContext context = new SocketPipelineContext(this);
-            context.ProgressReadHandler(ref datagram);
+            this.Pipeline.Read(ref datagram);
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             static void ReadU(ref SequenceReader<byte> reader, out ushort value)

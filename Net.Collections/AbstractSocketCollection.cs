@@ -1,10 +1,10 @@
-﻿using System;
+﻿using Net.Sockets;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Net.API.Socket;
 
 namespace Net.Collections
 {
@@ -19,8 +19,6 @@ namespace Net.Collections
 
         public int Count => this.Sockets.Count;
         public IEnumerable<ISocket> Values => this.Sockets.Values;
-
-        public bool Contains(ISocket socket) => this.Sockets.ContainsKey(socket.Id);
 
         public virtual bool TryAdd(ISocket socket)
         {
@@ -73,5 +71,18 @@ namespace Net.Collections
         }
 
         private void OnDisconnect(ISocket socket) => this.TryRemove(socket);
+
+        public bool Contains(ISocket socket) => this.Sockets.ContainsKey(socket.Id);
+
+        public Task SendAsync(ReadOnlyMemory<byte> data)
+        {
+            List<Task> tasks = new List<Task>(this.Sockets.Count);
+            foreach (ISocket socket in this.Values)
+            {
+                tasks.Add(socket.SendAsync(data));
+            }
+
+            return Task.WhenAll(tasks);
+        }
     }
 }

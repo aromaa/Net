@@ -9,7 +9,7 @@ namespace Net.Sockets.Async
     internal abstract class SocketAwaitableEventArgs<T> : SocketAsyncEventArgs, ICriticalNotifyCompletion
     {
         private static readonly Action CompletedCallback = () => { };
-        private static readonly Action<object> RunContinuationCallbackAction = SocketAwaitableEventArgs<T>.RunContinuationCallback;
+        private static readonly Action<object?> RunContinuationCallbackAction = SocketAwaitableEventArgs<T>.RunContinuationCallback;
 
         private PipeScheduler Scheduler { get; }
 
@@ -50,7 +50,7 @@ namespace Net.Sockets.Async
             this.Scheduler.Schedule(SocketAwaitableEventArgs<T>.RunContinuationCallbackAction, continuation);
         }
 
-        private static void RunContinuationCallback(object state) => ((Action)state).Invoke();
+        private static void RunContinuationCallback(object? state) => ((Action)state!).Invoke();
 
         public virtual SocketAwaitableEventArgs<T> GetAwaiter() => this;
 

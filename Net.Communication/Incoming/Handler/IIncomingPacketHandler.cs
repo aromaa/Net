@@ -1,24 +1,24 @@
 ﻿using System.Runtime.CompilerServices;
-using Net.Pipeline.Socket;
+using Net.Sockets.Pipeline.Handler;
 
 namespace Net.Communication.Incoming.Handler
 {
     public interface IIncomingPacketHandler<T> : IIncomingPacketHandler
     {
-        public void Handle(ref SocketPipelineContext context, in T packet);
+        public void Handle(IPipelineHandlerContext context, in T packet);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        void IIncomingPacketHandler.Handle<TPacket>(ref SocketPipelineContext context, in TPacket packet)
+        void IIncomingPacketHandler.Handle<TPacket>(IPipelineHandlerContext context, in TPacket packet)
         {
             if (this is IIncomingPacketHandler<TPacket> handler)
             {
-                handler.Handle(ref context, packet);
+                handler.Handle(context, packet);
             }
         }
     }
 
     public interface IIncomingPacketHandler
     {
-        public void Handle<T>(ref SocketPipelineContext context, in T packet);
+        public void Handle<T>(IPipelineHandlerContext context, in T packet);
     }
 }

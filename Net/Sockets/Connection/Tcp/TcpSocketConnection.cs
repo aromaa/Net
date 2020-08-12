@@ -11,10 +11,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using log4net;
 using Net.Buffers;
-using Net.Pipeline.Socket;
 using Net.Sockets.Async;
 using Net.Sockets.Pipeline;
-using Net.Tracking;
 
 namespace Net.Sockets.Connection.Tcp
 {
@@ -63,11 +61,6 @@ namespace Net.Sockets.Connection.Tcp
 
                 writer.Advance(receivedBytes);
 
-                if (NetworkTracking.IsEnabled)
-                {
-                    Interlocked.Add(ref NetworkTracking.DownstreamBytes, receivedBytes);
-                }
-
                 FlushResult flushResult = await writer.FlushAsync().ConfigureAwait(false);
                 if (flushResult.IsCompleted || flushResult.IsCanceled)
                 {
@@ -96,9 +89,7 @@ namespace Net.Sockets.Connection.Tcp
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected override void ProcessIncomingData(ref PacketReader reader)
         {
-            SocketPipelineContext context = new SocketPipelineContext(this);
-
-            context.ProgressReadHandler(ref reader);
+            this.Pipeline.Read(ref reader);
         }
     }
 }

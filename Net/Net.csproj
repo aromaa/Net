@@ -13,7 +13,5 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Net.Buffers\Net.Buffers.csproj" />
-    <ProjectReference Include="..\Net.Pipeline\Net.Pipeline.csproj" />
-    <ProjectReference Include="..\Net.Tracking\Net.Tracking.csproj" />
   </ItemGroup>
 </Project>

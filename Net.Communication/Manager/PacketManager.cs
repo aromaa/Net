@@ -10,7 +10,7 @@ using Net.Communication.Incoming.Consumer.Internal;
 using Net.Communication.Incoming.Handler;
 using Net.Communication.Incoming.Parser;
 using Net.Communication.Outgoing;
-using Net.Pipeline.Socket;
+using Net.Sockets.Pipeline.Handler;
 
 namespace Net.Communication.Manager
 {
@@ -211,11 +211,11 @@ namespace Net.Communication.Manager
 
         public bool TryGetParser(T packetId, [NotNullWhen(true)] out IIncomingPacketParser? parser) => this.IncomingParsers.TryGetValue(packetId, out parser);
 
-        public bool TryConsumePacket(ref SocketPipelineContext context, ref PacketReader reader, T packetId)
+        public bool TryConsumePacket(IPipelineHandlerContext context, ref PacketReader reader, T packetId)
         {
             if (this.TryGetConsumer(packetId, out IIncomingPacketConsumer? consumer))
             {
-                consumer.Read(ref context, ref reader);
+                consumer.Read(context, ref reader);
 
                 return true;
             }
@@ -225,11 +225,11 @@ namespace Net.Communication.Manager
 
         public bool TryGetConsumer(T packetId, [NotNullWhen(true)] out IIncomingPacketConsumer? consumer) => this.IncomingConsumers.TryGetValue(packetId, out consumer);
 
-        public bool TryHandlePacket<TPacket>(ref SocketPipelineContext context, in TPacket packet)
+        public bool TryHandlePacket<TPacket>(IPipelineHandlerContext context, in TPacket packet)
         {
             if (this.TryGetHandler<TPacket>(out IIncomingPacketHandler? handler))
             {
-                handler.Handle(ref context, packet);
+                handler.Handle(context, packet);
 
                 return true;
             }

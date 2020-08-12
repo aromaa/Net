@@ -1,15 +1,14 @@
 ﻿using System;
 using System.Net;
-using Net.Pipeline.Handler;
-using Net.Pipeline.Socket;
 using Net.Sockets.Listener.Tcp;
 using Net.Sockets.Listener.Udp;
+using Net.Sockets.Pipeline;
 
 namespace Net.Sockets.Listener
 {
     public interface IListener : IDisposable
     {
-        public delegate void SocketEvent(IPipelineSocket socket);
+        public delegate void SocketEvent(ISocket socket);
 
         //Hoping to have alternative, somewhat good looking API, this is temp
         public static IListener CreateTcpListener(IPEndPoint endPoint, SocketEvent acceptEvent)

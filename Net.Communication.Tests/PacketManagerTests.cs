@@ -6,16 +6,18 @@ using System.IO.Pipelines;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Net.API.Metadata;
-using Net.API.Socket;
 using Net.Buffers;
 using Net.Communication.Attributes;
 using Net.Communication.Incoming.Consumer;
 using Net.Communication.Incoming.Handler;
 using Net.Communication.Incoming.Parser;
+using Net.Communication.Manager;
 using Net.Communication.Outgoing;
-using Net.Pipeline.Handler.Incoming;
-using Net.Pipeline.Socket;
+using Net.Metadata;
+using Net.Sockets;
+using Net.Sockets.Pipeline;
+using Net.Sockets.Pipeline.Handler;
+using Net.Sockets.Pipeline.Handler.Incoming;
 using Ninject;
 using Xunit;
 
@@ -71,11 +73,11 @@ namespace Net.Communication.Tests
         {
             IncomingObjectCatcher catcher = new IncomingObjectCatcher();
 
-            SocketPipelineContext context = new SocketPipelineContext(DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher)));
+            ISocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
             PacketReader reader = default;
 
             TestParsersManager manager = new TestParsersManager(this.ServiceProvider);
-            manager.TryConsumePacket(ref context, ref reader, 3);
+            manager.TryConsumePacket(socket.Pipeline.Context, ref reader, 3);
 
             Assert.Equal("Parser", catcher.Pop());
         }
@@ -85,10 +87,10 @@ namespace Net.Communication.Tests
         {
             IncomingObjectCatcher catcher = new IncomingObjectCatcher();
 
-            SocketPipelineContext context = new SocketPipelineContext(DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher)));
+            ISocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
 
             TestHandlersManager manager = new TestHandlersManager(this.ServiceProvider);
-            manager.TryHandlePacket(ref context, "Handler");
+            manager.TryHandlePacket(socket.Pipeline.Context, "Handler");
 
             Assert.Equal("Handler", catcher.Pop());
         }
@@ -98,11 +100,11 @@ namespace Net.Communication.Tests
         {
             IncomingObjectCatcher catcher = new IncomingObjectCatcher();
 
-            SocketPipelineContext context = new SocketPipelineContext(DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher)));
+            ISocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
             PacketReader reader = default;
 
             TestParserHandlerManager manager = new TestParserHandlerManager(this.ServiceProvider);
-            manager.TryConsumePacket(ref context, ref reader, 1);
+            manager.TryConsumePacket(socket.Pipeline.Context, ref reader, 1);
 
             Assert.Equal("ParserHandler", catcher.Pop());
         }
@@ -146,7 +148,7 @@ namespace Net.Communication.Tests
             }
         }
 
-        private sealed class TestHandlersManager : Manager.PacketManager<uint>
+        private sealed class TestHandlersManager : PacketManager<uint>
         {
             public TestHandlersManager(IServiceProvider serviceProvider) : base(serviceProvider)
             {
@@ -155,7 +157,7 @@ namespace Net.Communication.Tests
             [PacketManagerRegister(typeof(TestHandlersManager))]
             internal sealed class TestHandler : IIncomingPacketHandler<string>
             {
-                public void Handle(ref SocketPipelineContext context, in string packet)
+                public void Handle(IPipelineHandlerContext context, in string packet)
                 {
                     string temp = packet;
 
@@ -164,7 +166,7 @@ namespace Net.Communication.Tests
             }
         }
 
-        private sealed class TestParserHandlerManager : Manager.PacketManager<uint>
+        private sealed class TestParserHandlerManager : PacketManager<uint>
         {
             public TestParserHandlerManager(IServiceProvider serviceProvider) : base(serviceProvider)
             {
@@ -179,7 +181,7 @@ namespace Net.Communication.Tests
                     return "ParserHandler";
                 }
 
-                public void Handle(ref SocketPipelineContext context, in string packet)
+                public void Handle(IPipelineHandlerContext context, in string packet)
                 {
                     string temp = packet;
 
@@ -188,7 +190,7 @@ namespace Net.Communication.Tests
             }
         }
 
-        private sealed class TestComposersManager : Manager.PacketManager<uint>
+        private sealed class TestComposersManager : PacketManager<uint>
         {
             public TestComposersManager(IServiceProvider serviceProvider) : base(serviceProvider)
             {
@@ -209,7 +211,7 @@ namespace Net.Communication.Tests
         {
             private readonly Queue<object?> Objects = new Queue<object?>();
 
-            public void Handle<T>(ref SocketPipelineContext context, ref T packet)
+            public void Handle<T>(IPipelineHandlerContext context, ref T packet)
             {
                 this.Objects.Enqueue(packet);
             }
@@ -220,36 +222,25 @@ namespace Net.Communication.Tests
             }
         }
 
-        private sealed class DummyIPipelineSocket : IPipelineSocket
+        private sealed class DummyIPipelineSocket : ISocket
         {
             public MetadataMap Metadata => throw new NotImplementedException();
             public SocketPipeline Pipeline { get; } = new SocketPipeline();
 
             public SocketId Id => throw new NotImplementedException();
 
-            public event SocketEvent<IPipelineSocket> Connected
+            public event SocketEvent<ISocket> Connected
             {
                 add => throw new NotImplementedException();
                 remove => throw new NotImplementedException();
             }
-            public event SocketEvent<IPipelineSocket> Disconnected
-            {
-                add => throw new NotImplementedException();
-                remove => throw new NotImplementedException();
-            }
-            event SocketEvent<ISocket> ISocket.Connected
+            public event SocketEvent<ISocket> Disconnected
             {
                 add => throw new NotImplementedException();
                 remove => throw new NotImplementedException();
             }
 
-            event SocketEvent<ISocket> ISocket.Disconnected
-            {
-                add => throw new NotImplementedException();
-                remove => throw new NotImplementedException();
-            }
-
-            internal static DummyIPipelineSocket Create(Action<IPipelineSocket> action)
+            internal static DummyIPipelineSocket Create(Action<ISocket> action)
             {
                 DummyIPipelineSocket socket = new DummyIPipelineSocket();
 
@@ -257,6 +248,8 @@ namespace Net.Communication.Tests
 
                 return socket;
             }
+
+            public Task SendAsync<T>(in T data) => throw new NotImplementedException();
 
             public void Disconnect(Exception exception)
             {

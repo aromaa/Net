@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using Net.Buffers;
 using Net.Communication.Incoming.Handler;
 using Net.Communication.Incoming.Parser;
-using Net.Pipeline.Socket;
+using Net.Sockets.Pipeline.Handler;
 
 namespace Net.Communication.Incoming.Consumer.Internal
 {
@@ -18,13 +18,13 @@ namespace Net.Communication.Incoming.Consumer.Internal
             this.Handler = handler;
         }
 
-        public void Read(ref SocketPipelineContext context, ref PacketReader reader) => this.Handle(ref context, this.Parse(ref reader));
+        public void Read(IPipelineHandlerContext context, ref PacketReader reader) => this.Handle(context, this.Parse(ref reader));
 
         [return: NotNull]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T Parse(ref PacketReader reader) => this.Parser.Parse(ref reader);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Handle(ref SocketPipelineContext context, in T packet) => this.Handler.Handle(ref context, packet);
+        public void Handle(IPipelineHandlerContext context, in T packet) => this.Handler.Handle(context, packet);
     }
 }

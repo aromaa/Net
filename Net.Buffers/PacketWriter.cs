@@ -10,7 +10,7 @@ namespace Net.Buffers
 {
     public ref partial struct PacketWriter
     {
-        private readonly IBufferWriter<byte> Writer;
+        private readonly IBufferWriter<byte>? Writer;
 
         private int Pointer;
         private int SpanPointer;
@@ -26,6 +26,17 @@ namespace Net.Buffers
             this.SpanPointer = 0;
 
             this.Buffer = this.Writer.GetSpan();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PacketWriter(Span<byte> buffer)
+        {
+            this.Writer = null;
+
+            this.Pointer = 0;
+            this.SpanPointer = 0;
+
+            this.Buffer = buffer;
         }
 
         public int Length => this.Pointer;
@@ -115,6 +126,9 @@ namespace Net.Buffers
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public PacketWriter ReservedFixedSlice(int amount) => new PacketWriter(this.GetBuffer(amount));
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private Span<byte> GetBuffer(int amount)
         {
             this.CheckReleased();
@@ -126,13 +140,17 @@ namespace Net.Buffers
 
                 this.SpanPointer += amount;
             }
-            else
+            else if (!(this.Writer is null))
             {
                 this.Writer.Advance(this.SpanPointer);
 
                 result = this.Writer.GetSpan(amount);
 
                 this.SpanPointer = amount;
+            }
+            else
+            {
+                throw new IndexOutOfRangeException();
             }
 
             this.Pointer += amount;
@@ -161,6 +179,11 @@ namespace Net.Buffers
         public void Dispose(bool flushWriter)
         {
             this.CheckReleased();
+
+            if (this.Writer is null)
+            {
+                return;
+            }
 
             this.Writer.Advance(this.SpanPointer);
 
