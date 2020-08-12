@@ -201,20 +201,9 @@ namespace Net.Sockets
         {
             PacketReader reader = new PacketReader(buffer);
 
-            SequencePosition lastPos = reader.Position;
-            while (true)
-            {
-                this.ProcessIncomingData(ref reader);
+            this.ProcessIncomingData(ref reader);
 
-                if (reader.End || reader.Partial || lastPos.Equals(reader.Position))
-                {
-                    break;
-                }
-
-                lastPos = reader.Position;
-            }
-
-            return lastPos;
+            return reader.Position;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -1,4 +1,5 @@
-﻿using System.Buffers;
+﻿using System;
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using Net.Buffers;
 
@@ -6,8 +7,26 @@ namespace Net.Sockets.Pipeline.Handler.Incoming
 {
     public abstract class IncomingBytesHandler : IIncomingObjectHandler<ReadOnlySequence<byte>>, IIncomingObjectHandler<byte[]>
     {
-        public abstract void Handle(IPipelineHandlerContext context, ref PacketReader data);
+        protected abstract void Decode(IPipelineHandlerContext context, ref PacketReader reader);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Handle(IPipelineHandlerContext context, ref PacketReader reader)
+        {
+            SequencePosition lastPos = reader.Position;
+            while (true)
+            {
+                this.Decode(context, ref reader);
+
+                if (reader.End || reader.Partial || lastPos.Equals(reader.Position))
+                {
+                    break;
+                }
+
+                lastPos = reader.Position;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Handle(IPipelineHandlerContext context, ref ReadOnlySequence<byte> packet)
         {
             PacketReader packetReader = new PacketReader(packet);
@@ -17,6 +36,7 @@ namespace Net.Sockets.Pipeline.Handler.Incoming
             packet = packetReader.Partial ? packet : packetReader.UnreadSequence;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Handle(IPipelineHandlerContext context, ref byte[] packet)
         {
             ReadOnlySequence<byte> sequence = new ReadOnlySequence<byte>(packet);
@@ -41,7 +61,7 @@ namespace Net.Sockets.Pipeline.Handler.Incoming
             }
             else if (typeof(TPacket) == typeof(byte[]))
             {
-                this.Handle(context, ref Unsafe.As<TPacket, ReadOnlySequence<byte>>(ref packet));
+                this.Handle(context, ref Unsafe.As<TPacket, byte[]>(ref packet));
 
                 return;
             }
