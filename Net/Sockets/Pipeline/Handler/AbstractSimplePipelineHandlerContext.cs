@@ -13,9 +13,6 @@ namespace Net.Sockets.Pipeline.Handler
         public abstract void ProgressReadHandler(ref PacketReader packet);
         public abstract void ProgressWriteHandler<TPacket>(ref PacketWriter writer, in TPacket packet);
 
-        internal abstract bool Tail { get; }
-
         internal abstract AbstractSimplePipelineHandlerContext AddHandlerFirst<TFirst>(TFirst first) where TFirst : IPipelineHandler;
-        internal abstract AbstractSimplePipelineHandlerContext AddHandlerLast<TLast>(TLast last) where TLast : IPipelineHandler;
     }
 }
