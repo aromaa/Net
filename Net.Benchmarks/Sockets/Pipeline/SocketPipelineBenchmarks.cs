@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
@@ -88,25 +89,17 @@ namespace Net.Benchmarks.Sockets.Pipeline
 
             public SocketId Id => throw new NotImplementedException();
 
-            public event SocketEvent<ISocket> Connected
+            public bool Closed => throw new NotImplementedException();
+
+            public EndPoint? RemoteEndPoint => throw new NotImplementedException();
+
+            public event SocketEvent<ISocket> OnConnected
             {
                 add => throw new NotImplementedException();
                 remove => throw new NotImplementedException();
             }
 
-            public event SocketEvent<ISocket> Disconnected
-            {
-                add => throw new NotImplementedException();
-                remove => throw new NotImplementedException();
-            }
-
-            event SocketEvent<ISocket> ISocket.Connected
-            {
-                add => throw new NotImplementedException();
-                remove => throw new NotImplementedException();
-            }
-
-            event SocketEvent<ISocket> ISocket.Disconnected
+            public event SocketEvent<ISocket> OnDisconnected
             {
                 add => throw new NotImplementedException();
                 remove => throw new NotImplementedException();
@@ -133,16 +126,6 @@ namespace Net.Benchmarks.Sockets.Pipeline
 
             public void Dispose()
             {
-            }
-
-            public Task SendPacketAsync<T>(in T packet)
-            {
-                throw new NotImplementedException();
-            }
-
-            public Task SendAsync(ReadOnlyMemory<byte> data)
-            {
-                throw new NotImplementedException();
             }
 
             public Task SendAsync<T>(in T data)

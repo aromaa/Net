@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Pipelines;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using Net.Buffers;
@@ -234,12 +235,16 @@ namespace Net.Communication.Tests
 
             public SocketId Id => throw new NotImplementedException();
 
-            public event SocketEvent<ISocket> Connected
+            public bool Closed => throw new NotImplementedException();
+
+            public EndPoint? RemoteEndPoint => throw new NotImplementedException();
+
+            public event SocketEvent<ISocket> OnConnected
             {
                 add => throw new NotImplementedException();
                 remove => throw new NotImplementedException();
             }
-            public event SocketEvent<ISocket> Disconnected
+            public event SocketEvent<ISocket> OnDisconnected
             {
                 add => throw new NotImplementedException();
                 remove => throw new NotImplementedException();
@@ -268,16 +273,6 @@ namespace Net.Communication.Tests
 
             public void Dispose()
             {
-            }
-
-            public Task SendPacketAsync<T>(in T packet)
-            {
-                throw new NotImplementedException();
-            }
-
-            public Task SendAsync(ReadOnlyMemory<byte> data)
-            {
-                throw new NotImplementedException();
             }
         }
     }

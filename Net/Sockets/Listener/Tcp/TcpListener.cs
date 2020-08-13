@@ -66,7 +66,7 @@ namespace Net.Sockets.Listener.Tcp
                     {
                         this.AcceptEvent.Invoke(connection);
 
-                        if (!connection.Disposed)
+                        if (!connection.Closed)
                         {
                             connection.Prepare();
                         }

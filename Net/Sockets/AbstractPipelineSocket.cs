@@ -2,6 +2,7 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO.Pipelines;
+using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -30,6 +31,8 @@ namespace Net.Sockets
 
         public SocketId Id { get; }
 
+        private SocketStatus Status;
+
         public MetadataMap Metadata { get; }
         public SocketPipeline Pipeline { get; }
 
@@ -39,8 +42,6 @@ namespace Net.Sockets
         //I actually have no idea what I'm doing.. lmao
         //This seems like nice option to do this and control write queue
         private BufferBlock<ISendQueueTask>? SendQueue;
-
-        private SocketStatus Status;
 
         private event SocketEvent<ISocket>? ConnectedEvent;
         private event SocketEvent<ISocket>? DisconnectedEvent;
@@ -55,7 +56,12 @@ namespace Net.Sockets
             this.Pipeline = new SocketPipeline(this);
         }
 
-        public event SocketEvent<ISocket> Connected
+        public bool Closed => this.Status.HasFlag(SocketStatus.Disposed);
+
+        public EndPoint? LocalEndPoint => this.Socket.LocalEndPoint;
+        public EndPoint? RemoteEndPoint => this.Socket.RemoteEndPoint;
+
+        public event SocketEvent<ISocket> OnConnected
         {
             add
             {
@@ -67,7 +73,7 @@ namespace Net.Sockets
             remove => DelegateUtils.TryRemove(ref this.ConnectedEvent, value);
         }
 
-        public event SocketEvent<ISocket> Disconnected
+        public event SocketEvent<ISocket> OnDisconnected
         {
             add
             {
@@ -78,8 +84,6 @@ namespace Net.Sockets
             }
             remove => DelegateUtils.TryRemove(ref this.DisconnectedEvent, value);
         }
-        public bool Closed => this.Status.HasFlag(SocketStatus.Shutdown);
-        public bool Disposed => this.Status.HasFlag(SocketStatus.Disposed);
 
         internal void Prepare()
         {

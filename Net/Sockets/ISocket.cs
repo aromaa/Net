@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using System.Threading.Tasks;
 using Net.Metadata;
 using Net.Sockets.Pipeline;
@@ -9,14 +10,19 @@ namespace Net.Sockets
     {
         public SocketId Id { get; }
 
+        public bool Closed { get; }
+
         public SocketPipeline Pipeline { get; }
+
+        public EndPoint? LocalEndPoint { get; }
+        public EndPoint? RemoteEndPoint { get; }
 
         public Task SendAsync<TPacket>(in TPacket data);
 
         public void Disconnect(Exception exception);
         public void Disconnect(string? reason = default);
 
-        public event SocketEvent<ISocket> Connected;
-        public event SocketEvent<ISocket> Disconnected;
+        public event SocketEvent<ISocket> OnConnected;
+        public event SocketEvent<ISocket> OnDisconnected;
     }
 }

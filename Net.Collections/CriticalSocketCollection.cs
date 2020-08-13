@@ -62,7 +62,7 @@ namespace Net.Collections
                 }
 
                 //Do last so we don't execute OnRemoved code while doing the add
-                socket.Disconnected += this.OnDisconnect;
+                socket.OnDisconnected += this.OnDisconnect;
 
                 return true;
             }

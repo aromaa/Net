@@ -60,7 +60,7 @@ namespace Net.Collections
                 }
 
                 //Do last so we don't execute OnRemoved code while doing the add
-                socket.Disconnected += this.OnDisconnect;
+                socket.OnDisconnected += this.OnDisconnect;
 
                 return true;
             }
@@ -73,7 +73,7 @@ namespace Net.Collections
             if (this.Sockets.TryRemove(socket.Id, out StrongBox<T>? handler))
             {
                 //Cleanup first
-                socket.Disconnected -= this.OnDisconnect;
+                socket.OnDisconnected -= this.OnDisconnect;
 
                 this.OnRemoved(socket, ref handler.Value);
 
