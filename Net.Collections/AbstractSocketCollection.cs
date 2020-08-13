@@ -36,6 +36,12 @@ namespace Net.Collections
             return new StrongBox<T>(handler);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private protected StrongBox<T> CreateSocketHolder(T holder)
+        {
+            return new StrongBox<T>(holder);
+        }
+
         public virtual bool TryAdd(ISocket socket)
         {
             StrongBox<T> handler = this.CreateSocketHolder(socket);
@@ -77,7 +83,7 @@ namespace Net.Collections
             return false;
         }
 
-        private void OnDisconnect(ISocket socket) => this.TryRemove(socket);
+        private protected void OnDisconnect(ISocket socket) => this.TryRemove(socket);
 
         public Task SendAsync<TPacket>(in TPacket data)
         {

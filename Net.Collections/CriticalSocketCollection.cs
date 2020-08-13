@@ -41,6 +41,20 @@ namespace Net.Collections
             return false;
         }
 
+        public bool TryAdd(ISocket socket, TData data)
+        {
+            StrongBox<SocketHolder> holder = this.CreateSocketHolder(new SocketHolder(socket, data));
+            if (this.Sockets.TryAdd(socket.Id, holder))
+            {
+                //Do last so we don't execute OnRemoved code while doing the add
+                socket.Disconnected += this.OnDisconnect;
+
+                return true;
+            }
+
+            return false;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private protected override void CreateSocketHolder(ISocket socket, out SocketHolder handler) => handler = new SocketHolder(socket);
 
@@ -74,6 +88,16 @@ namespace Net.Collections
             internal SocketHolder(ISocket socket) : this()
             {
                 this.Socket = socket;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal SocketHolder(ISocket socket, TData userDefinedData) : this()
+            {
+                this.Socket = socket;
+
+                this.EventStates = EventState.AddExecuted;
+
+                this.UserDefinedData = userDefinedData;
             }
 
             ISocket ISocketHolder.Socket
