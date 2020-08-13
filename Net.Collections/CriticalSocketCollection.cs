@@ -41,11 +41,26 @@ namespace Net.Collections
             return false;
         }
 
-        public bool TryAdd(ISocket socket, TData data)
+        public bool TryAdd(ISocket socket, TData data, bool callEvent = false)
         {
             StrongBox<SocketHolder> holder = this.CreateSocketHolder(new SocketHolder(socket, data));
             if (this.Sockets.TryAdd(socket.Id, holder))
             {
+                if (callEvent)
+                {
+                    try
+                    {
+                        this.OnAdded(socket, ref holder.Value);
+                    }
+                    catch
+                    {
+                        //Well, someone fucked up, lets clean up
+                        this.TryRemove(socket);
+
+                        throw;
+                    }
+                }
+
                 //Do last so we don't execute OnRemoved code while doing the add
                 socket.Disconnected += this.OnDisconnect;
 
