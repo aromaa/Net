@@ -12,17 +12,18 @@ namespace Net.Sockets.Pipeline.Handler.Incoming
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Handle(IPipelineHandlerContext context, ref PacketReader reader)
         {
-            SequencePosition lastPos = reader.Position;
+            long consumed = reader.Consumed;
+
             while (true)
             {
                 this.Decode(context, ref reader);
 
-                if (reader.End || reader.Partial || lastPos.Equals(reader.Position))
+                if (reader.End || reader.Partial || consumed == reader.Consumed)
                 {
                     break;
                 }
 
-                lastPos = reader.Position;
+                consumed = reader.Consumed;
             }
         }
 

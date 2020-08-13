@@ -44,7 +44,7 @@ namespace Net.Sockets.Pipeline.Handler
 
         private static unsafe class ReadPackerReader
         {
-            private static readonly delegate*<ref TCurrent, IPipelineHandlerContext, ref PacketReader, void> FunctionPointer;
+            private static readonly delegate*<TCurrent, IPipelineHandlerContext, ref PacketReader, void> FunctionPointer;
 
             static ReadPackerReader()
             {
@@ -56,7 +56,7 @@ namespace Net.Sockets.Pipeline.Handler
 
                 if (!(methodInfo is null))
                 {
-                    ReadPackerReader.FunctionPointer = (delegate*<ref TCurrent, IPipelineHandlerContext, ref PacketReader, void>)methodInfo.MethodHandle.GetFunctionPointer();
+                    ReadPackerReader.FunctionPointer = (delegate*<TCurrent, IPipelineHandlerContext, ref PacketReader, void>)methodInfo.MethodHandle.GetFunctionPointer();
                 }
             }
 
@@ -65,7 +65,7 @@ namespace Net.Sockets.Pipeline.Handler
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal static void Handle(ref TCurrent @this, IPipelineHandlerContext context, ref PacketReader packet)
             {
-                ReadPackerReader.FunctionPointer(ref @this, context, ref packet);
+                ReadPackerReader.FunctionPointer(@this, context, ref packet);
             }
         }
 
