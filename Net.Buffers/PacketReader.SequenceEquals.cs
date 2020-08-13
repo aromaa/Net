@@ -13,7 +13,7 @@ namespace Net.Buffers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool SequenceEqual(ReadOnlySpan<byte> other)
         {
-            if (!this.TryReadBytes(other.Length, out ReadOnlySequence<byte> sequence))
+            if (!this.TryPeekBytes(other.Length, out ReadOnlySequence<byte> sequence))
             {
                 return false;
             }
