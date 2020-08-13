@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Net.Buffers;
+using Net.Sockets;
 using Net.Sockets.Pipeline.Handler;
 using Net.Sockets.Pipeline.Handler.Incoming;
 using Xunit;
@@ -113,6 +114,8 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Incoming
         private sealed class DummyContext : IPipelineHandlerContext
         {
             public bool ProgressReadHandlerCalled { get; private set; }
+
+            public ISocket Socket => throw new NotImplementedException();
 
             public void ProgressReadHandler<TPacket>(ref TPacket packet) => this.ProgressReadHandlerCalled = true;
             public void ProgressReadHandler(ref PacketReader packet) => throw new NotImplementedException();

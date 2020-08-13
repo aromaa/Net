@@ -1,5 +1,6 @@
 ﻿using System;
 using Net.Buffers;
+using Net.Sockets;
 using Net.Sockets.Pipeline.Handler;
 using Net.Sockets.Pipeline.Handler.Outgoing;
 using Xunit;
@@ -109,6 +110,8 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing
         private sealed class DummyContext : IPipelineHandlerContext
         {
             public bool ProgressWriteHandlerCalled { get; private set; }
+
+            public ISocket Socket => throw new NotImplementedException();
 
             public void ProgressReadHandler<TPacket>(ref TPacket packet) => throw new NotImplementedException();
             public void ProgressReadHandler(ref PacketReader packet) => throw new NotImplementedException();

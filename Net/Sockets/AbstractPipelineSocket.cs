@@ -52,7 +52,7 @@ namespace Net.Sockets
             this.Id = SocketId.GenerateNew();
 
             this.Metadata = new MetadataMap();
-            this.Pipeline = new SocketPipeline();
+            this.Pipeline = new SocketPipeline(this);
         }
 
         public event SocketEvent<ISocket> Connected

@@ -10,16 +10,20 @@ namespace Net.Sockets.Pipeline
 {
     public sealed partial class SocketPipeline
     {
+        public ISocket Socket { get; }
+
         public IPipelineHandlerContext Context { get; private set; }
 
-        public SocketPipeline()
+        public SocketPipeline(ISocket socket)
         {
-            this.Context = TailPipelineHandlerContext.Instance;
+            this.Socket = socket;
+
+            this.Context = new TailPipelineHandlerContext(socket);
         }
 
         public void AddHandlerFirst<T>(T handler) where T: IPipelineHandler
         {
-            this.Context = SimplePipelineHandlerContext.AddHandlerFirst(handler, this.Context);
+            this.Context = SimplePipelineHandlerContext.AddHandlerFirst(this.Socket, handler, this.Context);
         }
 
         public void AddHandlerLast<T>(T handler) where T : IPipelineHandler

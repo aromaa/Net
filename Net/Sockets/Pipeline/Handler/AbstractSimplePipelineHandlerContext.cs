@@ -9,6 +9,8 @@ namespace Net.Sockets.Pipeline.Handler
 {
     internal abstract class AbstractSimplePipelineHandlerContext : IPipelineHandlerContext
     {
+        public abstract ISocket Socket { get; }
+
         public abstract void ProgressReadHandler<TPacket>(ref TPacket packet);
         public abstract void ProgressReadHandler(ref PacketReader packet);
         public abstract void ProgressWriteHandler<TPacket>(ref PacketWriter writer, in TPacket packet);

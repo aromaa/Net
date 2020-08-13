@@ -44,7 +44,7 @@ namespace Net.Tests.Sockets.Pipeline
 
         private static SocketPipeline CreatePipeline<T1, T2>(out T1 t1, out T2 t2) where T1: IPipelineHandler, new() where T2: IPipelineHandler, new()
         {
-            SocketPipeline pipeline = new SocketPipeline();
+            SocketPipeline pipeline = new SocketPipeline(null!);
             pipeline.AddHandlerFirst(t2 = new T2());
             pipeline.AddHandlerFirst(t1 = new T1());
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,7 +11,12 @@ namespace Net.Sockets.Pipeline.Handler
     //Using struct here so we can do code elimination, internal type anyway so I can change it anytime
     internal struct TailPipelineHandlerContext : IPipelineHandlerContext
     {
-        internal static readonly TailPipelineHandlerContext Instance = default!;
+        public ISocket Socket { get; }
+
+        internal TailPipelineHandlerContext(ISocket socket)
+        {
+            this.Socket = socket;
+        }
 
         public void ProgressReadHandler<TPacket>(ref TPacket packet)
         {

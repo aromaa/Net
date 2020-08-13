@@ -21,13 +21,17 @@ namespace Net.Sockets.Pipeline.Handler
     /// <typeparam name="TNext">The next <see cref="IPipelineHandlerContext"/> that would be fired if the current <see cref="IPipelineHandler"/> is unable to handle the type</typeparam>
     internal sealed partial class SimplePipelineHandlerContext<TCurrent, TNext> : AbstractSimplePipelineHandlerContext where TCurrent: IPipelineHandler where TNext: IPipelineHandlerContext
     {
+        public override ISocket Socket { get; }
+
         private TCurrent Handler;
 
         private readonly TNext Next;
         private readonly IPipelineHandlerContext NextBox; //This is only used when TNext is backed by a struct to avoid boxing allocations!
 
-        internal SimplePipelineHandlerContext(TCurrent handler, TNext next)
+        internal SimplePipelineHandlerContext(ISocket socket, TCurrent handler, TNext next)
         {
+            this.Socket = socket;
+
             this.Handler = handler;
 
             this.Next = next;
@@ -111,32 +115,32 @@ namespace Net.Sockets.Pipeline.Handler
             }
         }
 
-        internal override AbstractSimplePipelineHandlerContext AddHandlerFirst<TFirst>(TFirst first) => SimplePipelineHandlerContext.Create(first, SimplePipelineHandlerContext.Create(this.Handler));
+        internal override AbstractSimplePipelineHandlerContext AddHandlerFirst<TFirst>(TFirst first) => SimplePipelineHandlerContext.Create(this.Socket, first, SimplePipelineHandlerContext.Create(this.Socket, this.Handler));
     }
 
     internal static class SimplePipelineHandlerContext
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static SimplePipelineHandlerContext<TCurrent, TailPipelineHandlerContext> Create<TCurrent>(TCurrent current) where TCurrent : IPipelineHandler
+        internal static SimplePipelineHandlerContext<TCurrent, TailPipelineHandlerContext> Create<TCurrent>(ISocket socket, TCurrent current) where TCurrent : IPipelineHandler
         {
-            return SimplePipelineHandlerContext.Create(current, TailPipelineHandlerContext.Instance);
+            return SimplePipelineHandlerContext.Create(socket, current, new TailPipelineHandlerContext(socket));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static SimplePipelineHandlerContext<TCurrent, TNext> Create<TCurrent, TNext>(TCurrent current, TNext next) where TCurrent : IPipelineHandler where TNext : IPipelineHandlerContext
+        internal static SimplePipelineHandlerContext<TCurrent, TNext> Create<TCurrent, TNext>(ISocket socket, TCurrent current, TNext next) where TCurrent : IPipelineHandler where TNext : IPipelineHandlerContext
         {
-            return new SimplePipelineHandlerContext<TCurrent, TNext>(current, next);
+            return new SimplePipelineHandlerContext<TCurrent, TNext>(socket, current, next);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static IPipelineHandlerContext AddHandlerFirst<TFirst>(TFirst first, IPipelineHandlerContext previous) where TFirst : IPipelineHandler
+        internal static IPipelineHandlerContext AddHandlerFirst<TFirst>(ISocket socket, TFirst first, IPipelineHandlerContext previous) where TFirst : IPipelineHandler
         {
             if (previous is AbstractSimplePipelineHandlerContext context)
             {
                 return context.AddHandlerFirst(first);
             }
 
-            return SimplePipelineHandlerContext.Create(first);
+            return SimplePipelineHandlerContext.Create(socket, first);
         }
     }
 }

@@ -17,11 +17,11 @@ namespace Net.Benchmarks.Sockets.Pipeline.Handler
     [SimpleJob(RunStrategy.Throughput, targetCount: 1, invocationCount: 100000000)]
     public class SimplePipelineHandlerContextBenchmarks
     {
-        private readonly SimplePipelineHandlerContext<Handler, TailPipelineHandlerContext> HandlerContext = SimplePipelineHandlerContext.Create(new Handler());
-        private readonly SimplePipelineHandlerContext<HandlerGeneric, TailPipelineHandlerContext> GenericHandlerContext = SimplePipelineHandlerContext.Create(new HandlerGeneric());
+        private readonly SimplePipelineHandlerContext<Handler, TailPipelineHandlerContext> HandlerContext = SimplePipelineHandlerContext.Create(null!, new Handler());
+        private readonly SimplePipelineHandlerContext<HandlerGeneric, TailPipelineHandlerContext> GenericHandlerContext = SimplePipelineHandlerContext.Create(null!, new HandlerGeneric());
 
-        private readonly SimplePipelineHandlerContext<HandlerStruct, TailPipelineHandlerContext> HandlerStructContext = SimplePipelineHandlerContext.Create(new HandlerStruct());
-        private readonly SimplePipelineHandlerContext<HandlerGenericStruct, TailPipelineHandlerContext> GenericHandlerStructContext = SimplePipelineHandlerContext.Create(new HandlerGenericStruct());
+        private readonly SimplePipelineHandlerContext<HandlerStruct, TailPipelineHandlerContext> HandlerStructContext = SimplePipelineHandlerContext.Create(null!, new HandlerStruct());
+        private readonly SimplePipelineHandlerContext<HandlerGenericStruct, TailPipelineHandlerContext> GenericHandlerStructContext = SimplePipelineHandlerContext.Create(null!, new HandlerGenericStruct());
 
         [Benchmark]
         public void HandlerBenchmark()

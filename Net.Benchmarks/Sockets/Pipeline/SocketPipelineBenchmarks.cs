@@ -79,7 +79,12 @@ namespace Net.Benchmarks.Sockets.Pipeline
         private sealed class DummyIPipelineSocket : ISocket
         {
             public MetadataMap Metadata => throw new NotImplementedException();
-            public SocketPipeline Pipeline { get; } = new SocketPipeline();
+            public SocketPipeline Pipeline { get; }
+
+            private DummyIPipelineSocket()
+            {
+                this.Pipeline = new SocketPipeline(this);
+            }
 
             public SocketId Id => throw new NotImplementedException();
 
