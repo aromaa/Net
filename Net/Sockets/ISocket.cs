@@ -11,7 +11,7 @@ namespace Net.Sockets
 
         public SocketPipeline Pipeline { get; }
 
-        public Task SendAsync<T>(in T data);
+        public Task SendAsync<TPacket>(in TPacket data);
 
         public void Disconnect(Exception exception);
         public void Disconnect(string? reason = default);
