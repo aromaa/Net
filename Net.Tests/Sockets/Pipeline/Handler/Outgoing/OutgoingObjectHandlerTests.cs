@@ -113,6 +113,8 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing
 
             public ISocket Socket => throw new NotImplementedException();
 
+            public IPipelineHandler Handler => throw new NotImplementedException();
+
             public void ProgressReadHandler<TPacket>(ref TPacket packet) => throw new NotImplementedException();
             public void ProgressReadHandler(ref PacketReader packet) => throw new NotImplementedException();
             public void ProgressWriteHandler<TPacket>(ref PacketWriter writer, in TPacket packet) => this.ProgressWriteHandlerCalled = true;

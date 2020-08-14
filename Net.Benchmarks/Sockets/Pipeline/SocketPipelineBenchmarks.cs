@@ -93,6 +93,8 @@ namespace Net.Benchmarks.Sockets.Pipeline
 
             public EndPoint? RemoteEndPoint => throw new NotImplementedException();
 
+            public EndPoint? LocalEndPoint => throw new NotImplementedException();
+
             public event SocketEvent<ISocket> OnConnected
             {
                 add => throw new NotImplementedException();

@@ -23,7 +23,7 @@ namespace Net.Sockets.Pipeline.Handler
     {
         public override ISocket Socket { get; }
 
-        private TCurrent Handler;
+        private TCurrent CurrentHandler;
 
         private readonly TNext Next;
         private readonly IPipelineHandlerContext NextBox; //This is only used when TNext is backed by a struct to avoid boxing allocations!
@@ -32,11 +32,13 @@ namespace Net.Sockets.Pipeline.Handler
         {
             this.Socket = socket;
 
-            this.Handler = handler;
+            this.CurrentHandler = handler;
 
             this.Next = next;
             this.NextBox = next;
         }
+
+        public override IPipelineHandler Handler => this.CurrentHandler;
 
         private IPipelineHandlerContext NextContext
         {
@@ -52,7 +54,7 @@ namespace Net.Sockets.Pipeline.Handler
             {
                 if (Read<TPacket>.IsSupported)
                 {
-                    Read<TPacket>.Handle(ref this.Handler, this.NextContext, ref packet);
+                    Read<TPacket>.Handle(ref this.CurrentHandler, this.NextContext, ref packet);
                 }
                 else if (typeof(TNext) != typeof(TailPipelineHandlerContext))
                 {
@@ -90,7 +92,7 @@ namespace Net.Sockets.Pipeline.Handler
             {
                 if (Write<TPacket>.IsSupported)
                 {
-                    Write<TPacket>.Handle(ref this.Handler, this.NextContext, ref writer, packet);
+                    Write<TPacket>.Handle(ref this.CurrentHandler, this.NextContext, ref writer, packet);
                 }
                 else if (typeof(TNext) != typeof(TailPipelineHandlerContext))
                 {
@@ -133,7 +135,7 @@ namespace Net.Sockets.Pipeline.Handler
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static IPipelineHandlerContext AddHandlerFirst<TFirst>(ISocket socket, TFirst first, IPipelineHandlerContext previous) where TFirst : IPipelineHandler
+        internal static AbstractSimplePipelineHandlerContext AddHandlerFirst<TFirst>(ISocket socket, TFirst first, IPipelineHandlerContext previous) where TFirst : IPipelineHandler
         {
             if (previous is AbstractSimplePipelineHandlerContext context)
             {

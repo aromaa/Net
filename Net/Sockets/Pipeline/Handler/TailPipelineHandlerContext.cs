@@ -9,9 +9,11 @@ using Net.Buffers;
 namespace Net.Sockets.Pipeline.Handler
 {
     //Using struct here so we can do code elimination, internal type anyway so I can change it anytime
-    internal struct TailPipelineHandlerContext : IPipelineHandlerContext
+    internal readonly struct TailPipelineHandlerContext : IPipelineHandlerContext, IPipelineHandler
     {
         public ISocket Socket { get; }
+
+        public IPipelineHandler Handler => this;
 
         internal TailPipelineHandlerContext(ISocket socket)
         {

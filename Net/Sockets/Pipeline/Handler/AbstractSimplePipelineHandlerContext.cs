@@ -11,6 +11,8 @@ namespace Net.Sockets.Pipeline.Handler
     {
         public abstract ISocket Socket { get; }
 
+        public abstract IPipelineHandler Handler { get; }
+
         public abstract void ProgressReadHandler<TPacket>(ref TPacket packet);
         public abstract void ProgressReadHandler(ref PacketReader packet);
         public abstract void ProgressWriteHandler<TPacket>(ref PacketWriter writer, in TPacket packet);

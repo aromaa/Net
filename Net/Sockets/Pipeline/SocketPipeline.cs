@@ -14,16 +14,28 @@ namespace Net.Sockets.Pipeline
 
         public IPipelineHandlerContext Context { get; private set; }
 
+
+        private readonly List<AbstractSimplePipelineHandlerContext> Pipeline;
+
         public SocketPipeline(ISocket socket)
         {
             this.Socket = socket;
 
             this.Context = new TailPipelineHandlerContext(socket);
+
+            this.Pipeline = new List<AbstractSimplePipelineHandlerContext>();
         }
 
         public void AddHandlerFirst<T>(T handler) where T: IPipelineHandler
         {
-            this.Context = SimplePipelineHandlerContext.AddHandlerFirst(this.Socket, handler, this.Context);
+            lock (this.Pipeline)
+            {
+                AbstractSimplePipelineHandlerContext context = SimplePipelineHandlerContext.AddHandlerFirst(this.Socket, handler, this.Context);
+
+                this.Pipeline.Add(context);
+
+                this.Context = context;
+            }
         }
 
         public void AddHandlerLast<T>(T handler) where T : IPipelineHandler
@@ -34,8 +46,25 @@ namespace Net.Sockets.Pipeline
 
         public void RemoveHandler<T>(T handler) where T : IPipelineHandler
         {
-            //TODO: We need to rebuild the whole context!
-            throw new NotImplementedException();
+            lock (this.Pipeline)
+            {
+                //TODO: Lmao..
+
+                IPipelineHandlerContext context = new TailPipelineHandlerContext(this.Socket);
+                foreach (AbstractSimplePipelineHandlerContext pipelineContext in this.Pipeline.ToList())
+                {
+                    if (pipelineContext.Handler.Equals(handler))
+                    {
+                        this.Pipeline.Remove(pipelineContext);
+
+                        continue;
+                    }
+
+                    context = SimplePipelineHandlerContext.AddHandlerFirst(this.Socket, pipelineContext.Handler, context);
+                }
+
+                this.Context = context;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

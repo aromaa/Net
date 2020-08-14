@@ -42,6 +42,27 @@ namespace Net.Tests.Sockets.Pipeline
             Assert.True(stringHandler.Executed);
         }
 
+        [Fact]
+        public void TestPipelineRemoveWorks()
+        {
+            SocketPipeline pipeline = SocketPipelineTests.CreatePipeline(out Handler handler, out StringHandler stringHandler);
+            pipeline.RemoveHandler(handler);
+            pipeline.Read(string.Empty);
+
+            Assert.False(handler.Executed);
+            Assert.True(stringHandler.Executed);
+        }
+
+        [Fact]
+        public void TestPipelineRemoveWorks2()
+        {
+            SocketPipeline pipeline = SocketPipelineTests.CreatePipeline(out Handler handler, out StringHandler stringHandler);
+            pipeline.RemoveHandler(stringHandler);
+            pipeline.Read(string.Empty);
+
+            Assert.True(handler.Executed);
+            Assert.False(stringHandler.Executed);
+        }
         private static SocketPipeline CreatePipeline<T1, T2>(out T1 t1, out T2 t2) where T1: IPipelineHandler, new() where T2: IPipelineHandler, new()
         {
             SocketPipeline pipeline = new SocketPipeline(null!);

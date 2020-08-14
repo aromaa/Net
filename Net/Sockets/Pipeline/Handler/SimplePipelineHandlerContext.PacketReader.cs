@@ -18,7 +18,7 @@ namespace Net.Sockets.Pipeline.Handler
             {
                 if (ReadPackerReader.IsSupported)
                 {
-                    ReadPackerReader.Handle(ref this.Handler, this.NextContext, ref reader);
+                    ReadPackerReader.Handle(ref this.CurrentHandler, this.NextContext, ref reader);
                 }
                 else if (typeof(TNext) != typeof(TailPipelineHandlerContext))
                 {
