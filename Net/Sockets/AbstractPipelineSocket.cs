@@ -217,6 +217,16 @@ namespace Net.Sockets
         {
             try
             {
+                //Cancel the send pipe reader, we could never send more data and be stuck
+                this.SendPipe!.Reader.CancelPendingRead();
+            }
+            catch (Exception e)
+            {
+                AbstractPipelineSocket.Logger.Error("Failed to cancel send pipe reader", e);
+            }
+
+            try
+            {
                 reader.Complete();
             }
             catch (Exception e)
@@ -224,8 +234,12 @@ namespace Net.Sockets
                 AbstractPipelineSocket.Logger.Error("Failed to complete receive pipe reader", e);
             }
 
-            //Start dispose, we aren't handling any more data
-            this.Dispose();
+            SocketStatus old = this.Status.Or(SocketStatus.ReceiveClosed);
+            if (old.HasFlag(SocketStatus.SendClosed))
+            {
+                //Both receive & send has been closed
+                this.Dispose();
+            }
         }
 
         public Task SendAsync<T>(in T data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
@@ -275,11 +289,21 @@ namespace Net.Sockets
 
             task.Write(this.Pipeline, ref packetWriter);
 
-            packetWriter.Dispose();
+            packetWriter.Dispose(flushWriter: false);
         }
 
         private void HandleSendCompleted(PipeWriter writer)
         {
+            try
+            {
+                //Shutdown the send, we aren't sending anything anymore
+                this.Socket.Shutdown(SocketShutdown.Send);
+            }
+            catch
+            {
+                //Ignored
+            }
+
             try
             {
                 writer.Complete();
@@ -303,6 +327,11 @@ namespace Net.Sockets
                     if (!reader.TryRead(out ReadResult readResult))
                     {
                         readResult = await reader.ReadAsync().ConfigureAwait(false);
+                    }
+
+                    if (readResult.IsCanceled || readResult.IsCompleted)
+                    {
+                        break;
                     }
 
                     ReadOnlySequence<byte> buffer = readResult.Buffer;
@@ -359,11 +388,28 @@ namespace Net.Sockets
         {
             try
             {
+                //Cancel the read pipe reader, we could never receive more data and be stuck
+                this.ReceivePipe!.Reader.CancelPendingRead();
+            }
+            catch (Exception e)
+            {
+                AbstractPipelineSocket.Logger.Error("Failed to cancel send pipe reader", e);
+            }
+
+            try
+            {
                 reader.Complete();
             }
             catch (Exception e)
             {
                 AbstractPipelineSocket.Logger.Error("Failed to complete send pipe reader", e);
+            }
+
+            SocketStatus old = this.Status.Or(SocketStatus.SendClosed);
+            if (old.HasFlag(SocketStatus.ReceiveClosed))
+            {
+                //Both receive & send has been closed
+                this.Dispose();
             }
         }
 
@@ -514,8 +560,11 @@ namespace Net.Sockets
 
             Shutdown = 1 << 2,
 
-            Disposing = 1 << 3,
-            Disposed = 1 << 4
+            ReceiveClosed = 1 << 3,
+            SendClosed = 1 << 4,
+
+            Disposing = 1 << 5,
+            Disposed = 1 << 6
         }
 
         private interface ISendQueueTask
