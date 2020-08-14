@@ -134,6 +134,11 @@ namespace Net.Benchmarks.Sockets.Pipeline
             {
                 throw new NotImplementedException();
             }
+
+            public Task SendBytesAsync(ReadOnlyMemory<byte> data)
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 }

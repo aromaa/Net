@@ -228,15 +228,13 @@ namespace Net.Sockets
             this.Dispose();
         }
 
-        public Task SendAsync<T>(in T data)
-        {
-            return Task(ISendQueueTask.Create(data));
+        public Task SendAsync<T>(in T data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
+        public Task SendBytesAsync(ReadOnlyMemory<byte> data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            async Task Task(ISendQueueTask queue)
-            {
-                await this.SendQueue!.SendAsync(queue);
-            }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private async Task SendAsyncInternal(ISendQueueTask queue)
+        {
+            await this.SendQueue!.SendAsync(queue);
         }
 
         private async Task HandleSend(BufferBlock<ISendQueueTask> queue, PipeWriter writer)
@@ -524,21 +522,41 @@ namespace Net.Sockets
         {
             public void Write(SocketPipeline pipeline, ref PacketWriter writer);
 
-            internal static SendQueueTask<T> Create<T>(T value) => new SendQueueTask<T>(value);
+            internal static SendQueueTask<T> Create<T>(in T value) => new SendQueueTask<T>(value);
+            internal static SendQueueTask<SendQueueRaw> Create(ReadOnlyMemory<byte> data) => new SendQueueTask<SendQueueRaw>(new SendQueueRaw(data));
         }
 
         private sealed class SendQueueTask<T> : ISendQueueTask
         {
             private readonly T Value;
 
-            internal SendQueueTask(T value)
+            internal SendQueueTask(in T value)
             {
                 this.Value = value;
             }
 
             public void Write(SocketPipeline pipeline, ref PacketWriter writer)
             {
+                if (typeof(T) == typeof(SendQueueRaw))
+                {
+                    ref SendQueueRaw raw = ref Unsafe.As<T, SendQueueRaw>(ref Unsafe.AsRef(this.Value));
+
+                    writer.WriteBytes(raw.Data.Span);
+
+                    return;
+                }
+
                 pipeline.Write(ref writer, this.Value);
+            }
+        }
+
+        private readonly struct SendQueueRaw
+        {
+            internal readonly ReadOnlyMemory<byte> Data;
+
+            internal SendQueueRaw(ReadOnlyMemory<byte> data)
+            {
+                this.Data = data;
             }
         }
     }

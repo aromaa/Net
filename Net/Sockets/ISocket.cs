@@ -18,6 +18,7 @@ namespace Net.Sockets
         public EndPoint? RemoteEndPoint { get; }
 
         public Task SendAsync<TPacket>(in TPacket data);
+        public Task SendBytesAsync(ReadOnlyMemory<byte> data);
 
         public void Disconnect(Exception exception);
         public void Disconnect(string? reason = default);

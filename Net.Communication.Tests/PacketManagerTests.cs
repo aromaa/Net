@@ -276,6 +276,11 @@ namespace Net.Communication.Tests
             public void Dispose()
             {
             }
+
+            public Task SendBytesAsync(ReadOnlyMemory<byte> data)
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 }
