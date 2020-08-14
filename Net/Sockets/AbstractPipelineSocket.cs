@@ -245,10 +245,12 @@ namespace Net.Sockets
         public Task SendAsync<T>(in T data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
         public Task SendBytesAsync(ReadOnlyMemory<byte> data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
 
+        Task ISocket.SendAsyncInternal(ISendQueueTask task) => this.SendAsyncInternal(task);
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private async Task SendAsyncInternal(ISendQueueTask queue)
+        internal async Task SendAsyncInternal(ISendQueueTask task)
         {
-            await this.SendQueue!.SendAsync(queue);
+            await this.SendQueue!.SendAsync(task);
         }
 
         private async Task HandleSend(BufferBlock<ISendQueueTask> queue, PipeWriter writer)
@@ -436,10 +438,21 @@ namespace Net.Sockets
                 return false;
             }
 
+            try
+            {
+                //Cancel the read and let it tear down the socket
+                this.ReceivePipe?.Reader.CancelPendingRead();
+            }
+            catch (Exception e)
+            {
+                AbstractPipelineSocket.Logger.Error("Failed to cancel receive reader", e);
+            }
+
             this.OnDisconnect(reason);
 
             return true;
         }
+
         public virtual void OnDisconnect(string? reason = default)
         {
             //NOP
@@ -567,12 +580,12 @@ namespace Net.Sockets
             Disposed = 1 << 6
         }
 
-        private interface ISendQueueTask
+        internal interface ISendQueueTask
         {
             public void Write(SocketPipeline pipeline, ref PacketWriter writer);
 
-            internal static SendQueueTask<T> Create<T>(in T value) => new SendQueueTask<T>(value);
-            internal static SendQueueTask<SendQueueRaw> Create(ReadOnlyMemory<byte> data) => new SendQueueTask<SendQueueRaw>(new SendQueueRaw(data));
+            internal static ISendQueueTask Create<T>(in T value) => new SendQueueTask<T>(value);
+            internal static ISendQueueTask Create(ReadOnlyMemory<byte> data) => new SendQueueTask<SendQueueRaw>(new SendQueueRaw(data));
         }
 
         private sealed class SendQueueTask<T> : ISendQueueTask

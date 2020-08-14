@@ -1,8 +1,11 @@
-﻿using Net.Sockets;
+﻿using Net.Metadata;
+using Net.Sockets;
+using Net.Sockets.Pipeline;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -85,10 +88,12 @@ namespace Net.Collections
 
         public Task SendAsync<TPacket>(in TPacket data)
         {
+            AbstractPipelineSocket.ISendQueueTask task = AbstractPipelineSocket.ISendQueueTask.Create(data);
+
             List<Task> tasks = new List<Task>(this.Sockets.Count);
             foreach (ISocket socket in this.Values)
             {
-                tasks.Add(socket.SendAsync(data));
+                tasks.Add(socket.SendAsyncInternal(task));
             }
 
             return Task.WhenAll(tasks);
@@ -96,12 +101,14 @@ namespace Net.Collections
 
         public Task SendAsync<TPacket>(in TPacket data, ISocketMatcher matcher)
         {
+            AbstractPipelineSocket.ISendQueueTask task = AbstractPipelineSocket.ISendQueueTask.Create(data);
+
             List<Task> tasks = new List<Task>(this.Sockets.Count);
             foreach (ISocket socket in this.Values)
             {
                 if (matcher.Matches(socket))
                 {
-                    tasks.Add(socket.SendAsync(data));
+                    tasks.Add(socket.SendAsyncInternal(task));
                 }
             }
 

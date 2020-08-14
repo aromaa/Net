@@ -19,6 +19,7 @@ namespace Net.Sockets
 
         public Task SendAsync<TPacket>(in TPacket data);
         public Task SendBytesAsync(ReadOnlyMemory<byte> data);
+        internal Task SendAsyncInternal(AbstractPipelineSocket.ISendQueueTask task) => throw new NotSupportedException("This is internal implementation detail");
 
         public void Disconnect(Exception exception);
         public void Disconnect(string? reason = default);
