@@ -83,8 +83,6 @@ namespace Net.Collections
             return false;
         }
 
-        private protected void OnDisconnect(ISocket socket) => this.TryRemove(socket);
-
         public Task SendAsync<TPacket>(in TPacket data)
         {
             List<Task> tasks = new List<Task>(this.Sockets.Count);
@@ -95,6 +93,22 @@ namespace Net.Collections
 
             return Task.WhenAll(tasks);
         }
+
+        public Task SendAsync<TPacket>(in TPacket data, ISocketMatcher matcher)
+        {
+            List<Task> tasks = new List<Task>(this.Sockets.Count);
+            foreach (ISocket socket in this.Values)
+            {
+                if (matcher.Matches(socket))
+                {
+                    tasks.Add(socket.SendAsync(data));
+                }
+            }
+
+            return Task.WhenAll(tasks);
+        }
+
+        private protected void OnDisconnect(ISocket socket) => this.TryRemove(socket);
 
         private protected abstract void CreateSocketHolder(ISocket socket, out T holder);
 
