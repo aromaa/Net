@@ -70,6 +70,28 @@ namespace Net.Collections
             return false;
         }
 
+        public bool TryRemove(ISocket socket, out TData data, bool callEvent = false)
+        {
+            if (this.Sockets.TryRemove(socket.Id, out StrongBox<SocketHolder>? handler))
+            {
+                //Cleanup first
+                socket.OnDisconnected -= this.OnDisconnect;
+
+                if (callEvent)
+                {
+                    this.OnRemoved(socket, ref handler.Value);
+                }
+
+                data = handler.Value.UserDefinedData;
+
+                return true;
+            }
+
+            Unsafe.SkipInit(out data);
+
+            return false;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private protected override void CreateSocketHolder(ISocket socket, out SocketHolder handler) => handler = new SocketHolder(socket);
 
