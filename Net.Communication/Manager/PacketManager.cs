@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
@@ -22,6 +23,7 @@ namespace Net.Communication.Manager
 
         private readonly Dictionary<Type, ParserData> IncomingParsersType;
         private readonly Dictionary<Type, HandlerData> IncomingHandlersType;
+        private readonly Dictionary<Type, ConsumerData> IncomingConsumersType;
 
         private readonly Dictionary<Type, ComposerData> OutgoingComposersType;
 
@@ -37,6 +39,7 @@ namespace Net.Communication.Manager
 
             this.IncomingParsersType = new Dictionary<Type, ParserData>();
             this.IncomingHandlersType = new Dictionary<Type, HandlerData>();
+            this.IncomingConsumersType = new Dictionary<Type, ConsumerData>();
 
             this.OutgoingComposersType = new Dictionary<Type, ComposerData>();
 
@@ -49,7 +52,7 @@ namespace Net.Communication.Manager
             this.FindPacketManagerAttributes();
         }
 
-        protected void Combine(PacketManager<T> packetManager, bool parsers = true, bool handlers = true, bool composers = true)
+        protected void Combine(PacketManager<T> packetManager, bool parsers = true, bool handlers = true, bool consumers = true, bool composers = true)
         {
             if (parsers)
             {
@@ -67,6 +70,14 @@ namespace Net.Communication.Manager
                 }
             }
 
+            if (consumers)
+            {
+                foreach ((Type key, ConsumerData value) in packetManager.IncomingConsumersType)
+                {
+                    this.IncomingConsumersType.Add(key, value);
+                }
+            }
+
             if (composers)
             {
                 foreach ((Type key, ComposerData value) in packetManager.OutgoingComposersType)
@@ -78,7 +89,7 @@ namespace Net.Communication.Manager
             this.RebuildHandlers();
         }
 
-        protected void Remove(PacketManager<T> packetManager, bool parsers = true, bool handlers = true, bool composers = true)
+        protected void Remove(PacketManager<T> packetManager, bool parsers = true, bool handlers = true, bool consumers = true, bool composers = true)
         {
             if (parsers)
             {
@@ -96,6 +107,14 @@ namespace Net.Communication.Manager
                 }
             }
 
+            if (consumers)
+            {
+                foreach ((Type key, ConsumerData value) in packetManager.IncomingConsumersType)
+                {
+                    this.IncomingConsumersType.Add(key, value);
+                }
+            }
+
             if (composers)
             {
                 foreach (Type type in packetManager.OutgoingComposersType.Keys)
@@ -109,42 +128,75 @@ namespace Net.Communication.Manager
 
         protected void RebuildHandlers()
         {
+            Dictionary<T, IIncomingPacketConsumer> consumers = new Dictionary<T, IIncomingPacketConsumer>();
+            foreach ((Type type, ConsumerData data) in this.IncomingConsumersType.OrderByDescending(kvp => kvp.Value.Order))
+            {
+                if (!(this.ServiceProvider.GetService(type) is IIncomingPacketConsumer consumer))
+                {
+                    PacketManager<T>.Logger.Warn($"Type {type} was registered as IIncomingPacketConsumer but does not implement it!");
+
+                    continue;
+                }
+
+                consumers.TryAdd(data.Id, consumer);
+            }
+
             //Handlers first so we can construct consumers from them when going thru parsers
             Dictionary<Type, IIncomingPacketHandler> handlers = new Dictionary<Type, IIncomingPacketHandler>();
+            Dictionary<Type, object> byRefHandlers = new Dictionary<Type, object>(); //Special case
             foreach ((Type type, HandlerData data) in this.IncomingHandlersType.OrderByDescending(kvp => kvp.Value.Order))
             {
-                if (!(this.ServiceProvider.GetService(type) is IIncomingPacketHandler handler))
+                object? handler = this.ServiceProvider.GetService(type);
+                if (!(handler is IIncomingPacketHandler packetHandler))
                 {
-                    PacketManager<T>.Logger.Warn($"Type {type} was registered as IIncomingPacketHandler but does not implement it!");
+                    //ByRef like types are special ones
+                    if (data.HandlesType is null || !data.HandlesType.IsByRefLike)
+                    {
+                        PacketManager<T>.Logger.Warn($"Type {type} was registered as IIncomingPacketHandler but does not implement it!");
+                    }
+                    else if (!(handler is null))
+                    {
+                        byRefHandlers.Add(data.HandlesType, handler);
+                    }
 
                     continue;
                 }
 
                 if (!(data.HandlesType is null))
                 {
-                    handlers.TryAdd(data.HandlesType, handler);
+                    handlers.TryAdd(data.HandlesType, packetHandler);
                 }
             }
 
-            Dictionary<T, IIncomingPacketConsumer> consumers = new Dictionary<T, IIncomingPacketConsumer>();
             Dictionary<T, IIncomingPacketParser> parsers = new Dictionary<T, IIncomingPacketParser>();
             foreach ((Type type, ParserData data) in this.IncomingParsersType.OrderByDescending(kvp => kvp.Value.Order))
             {
-                if (!(this.ServiceProvider.GetService(type) is IIncomingPacketParser parser))
+                object? parser = this.ServiceProvider.GetService(type);
+                if (!(parser is IIncomingPacketParser packetParser))
                 {
-                    PacketManager<T>.Logger.Warn($"Type {type} was registered as IIncomingPacketParser but does not implement it!");
+                    //ByRef like types are special ones
+                    if (data.HandlesType is null || !data.HandlesType.IsByRefLike)
+                    {
+                        PacketManager<T>.Logger.Warn($"Type {type} was registered as IIncomingPacketParser but does not implement it!");
+                    }
+                    else if (!(parser is null) && byRefHandlers.TryGetValue(data.HandlesType, out object? byRefHandler))
+                    {
+                        consumers.TryAdd(data.Id, this.BuildByRefConsumer(data.HandlesType, parser, byRefHandler));
+                    }
 
                     continue;
                 }
 
-                parsers.TryAdd(data.Id, parser);
+                parsers.TryAdd(data.Id, packetParser);
 
-                if (!(data.HandlesType is null))
+                if (data.HandlesType is null)
                 {
-                    handlers.TryGetValue(data.HandlesType, out IIncomingPacketHandler? handler);
-
-                    consumers.TryAdd(data.Id, this.BuildConsumer(data.HandlesType, parser, handler));
+                    continue;
                 }
+
+                handlers.TryGetValue(data.HandlesType, out IIncomingPacketHandler? handler);
+
+                consumers.TryAdd(data.Id, this.BuildConsumer(data.HandlesType, packetParser, handler));
             }
 
             Dictionary<Type, (IOutgoingPacketComposer Composer, T Id)> composers = new Dictionary<Type, (IOutgoingPacketComposer, T)>();

@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Net.Communication.SourceGenerator\Net.Communication.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\Net.Communication\Net.Communication.csproj" />
   </ItemGroup>
 

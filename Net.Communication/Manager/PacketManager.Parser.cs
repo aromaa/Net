@@ -32,26 +32,19 @@ namespace Net.Communication.Manager
                 throw new ArgumentException(nameof(type));
             }
 
-            this.AddParser(type, registerAttribute);
+            PacketByRefTypeAttribute? byRefAttribute = type.GetCustomAttribute<PacketByRefTypeAttribute>();
 
-            if (!rebuildHandlers)
-            {
-                return;
-            }
-
-            this.RebuildHandlers();
+            this.AddParser(type, registerAttribute, byRefAttribute, rebuildHandlers);
         }
 
-        protected void AddParser(Type type, PacketManagerRegisterAttribute registerAttribute, bool rebuildHandlers = true)
+        protected void AddParser(Type type, PacketManagerRegisterAttribute registerAttribute, PacketByRefTypeAttribute? byRefTypeAttribute, bool rebuildHandlers = true)
         {
-            this.IncomingParsersType.Add(type, this.BuildParserData(type, registerAttribute));
+            this.IncomingParsersType.Add(type, this.BuildParserData(type, registerAttribute, byRefTypeAttribute));
 
-            if (!rebuildHandlers)
+            if (rebuildHandlers)
             {
-                return;
+                this.RebuildHandlers();
             }
-
-            this.RebuildHandlers();
         }
 
         protected void AddParsers(ICollection<Type> types, bool rebuildHandlers = true)
@@ -61,24 +54,20 @@ namespace Net.Communication.Manager
                 this.AddParser(type, rebuildHandlers: false);
             }
 
-            if (!rebuildHandlers)
+            if (rebuildHandlers)
             {
-                return;
+                this.RebuildHandlers();
             }
-
-            this.RebuildHandlers();
         }
 
         protected void RemoveParser(Type type, bool rebuildHandlers = true)
         {
             this.IncomingParsersType.Remove(type);
 
-            if (!rebuildHandlers)
+            if (rebuildHandlers)
             {
-                return;
+                this.RebuildHandlers();
             }
-
-            this.RebuildHandlers();
         }
     }
 }

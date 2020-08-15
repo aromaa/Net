@@ -53,6 +53,15 @@ namespace Net.Communication.Tests
         [Fact]
         public void TestConsumerFound()
         {
+            TestConsumersManager manager = new TestConsumersManager(this.ServiceProvider);
+            manager.TryGetConsumer(6, out IIncomingPacketConsumer? consumer);
+
+            Assert.IsType<TestConsumersManager.TestConsumer>(consumer);
+        }
+
+        [Fact]
+        public void TestComposerFound()
+        {
             TestComposersManager manager = new TestComposersManager(this.ServiceProvider);
             manager.TryGetComposer<string>(out IOutgoingPacketComposer? composer, out uint id);
 
@@ -126,7 +135,7 @@ namespace Net.Communication.Tests
             Assert.Equal(Encoding.UTF8.GetBytes("Writer"), stream.ToArray());
         }
 
-        private sealed class TestParsersManager : Manager.PacketManager<uint>
+        private sealed class TestParsersManager : PacketManager<uint>
         {
             public TestParsersManager(IServiceProvider serviceProvider) : base(serviceProvider)
             {
@@ -191,6 +200,25 @@ namespace Net.Communication.Tests
             }
         }
 
+        private sealed class TestConsumersManager : PacketManager<uint>
+        {
+            public TestConsumersManager(IServiceProvider serviceProvider) : base(serviceProvider)
+            {
+            }
+
+            [PacketManagerRegister(typeof(TestConsumersManager))]
+            [PacketParserId(6u)]
+            internal sealed class TestConsumer : IIncomingPacketConsumer
+            {
+                public void Read(IPipelineHandlerContext context, ref PacketReader reader)
+                {
+                    string value = "Consumer";
+
+                    context.ProgressReadHandler(ref value);
+                }
+            }
+        }
+
         private sealed class TestComposersManager : PacketManager<uint>
         {
             public TestComposersManager(IServiceProvider serviceProvider) : base(serviceProvider)
@@ -205,81 +233,6 @@ namespace Net.Communication.Tests
                 {
                     writer.WriteBytes(Encoding.UTF8.GetBytes(packet));
                 }
-            }
-        }
-
-        private sealed class IncomingObjectCatcher : IIncomingObjectHandler
-        {
-            private readonly Queue<object?> Objects = new Queue<object?>();
-
-            public void Handle<T>(IPipelineHandlerContext context, ref T packet)
-            {
-                this.Objects.Enqueue(packet);
-            }
-
-            internal object? Pop()
-            {
-                return this.Objects.Dequeue();
-            }
-        }
-
-        private sealed class DummyIPipelineSocket : ISocket
-        {
-            public MetadataMap Metadata => throw new NotImplementedException();
-            public SocketPipeline Pipeline { get; }
-
-            private DummyIPipelineSocket()
-            {
-                this.Pipeline = new SocketPipeline(this);
-            }
-
-            public SocketId Id => throw new NotImplementedException();
-
-            public bool Closed => throw new NotImplementedException();
-
-            public EndPoint? RemoteEndPoint => throw new NotImplementedException();
-
-            public EndPoint? LocalEndPoint => throw new NotImplementedException();
-
-            public event SocketEvent<ISocket> OnConnected
-            {
-                add => throw new NotImplementedException();
-                remove => throw new NotImplementedException();
-            }
-            public event SocketEvent<ISocket> OnDisconnected
-            {
-                add => throw new NotImplementedException();
-                remove => throw new NotImplementedException();
-            }
-
-            internal static DummyIPipelineSocket Create(Action<ISocket> action)
-            {
-                DummyIPipelineSocket socket = new DummyIPipelineSocket();
-
-                action.Invoke(socket);
-
-                return socket;
-            }
-
-            public Task SendAsync<T>(in T data) => throw new NotImplementedException();
-
-            public void Disconnect(Exception exception)
-            {
-                throw new NotImplementedException();
-            }
-
-            public void Disconnect(string? reason)
-            {
-                throw new NotImplementedException();
-            }
-
-            public void Dispose()
-            {
-            }
-
-            public Task SendBytesAsync(ReadOnlyMemory<byte> data)
-            {
-                throw new NotImplementedException();
             }
         }
     }

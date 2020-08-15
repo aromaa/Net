@@ -30,26 +30,19 @@ namespace Net.Communication.Manager
                 throw new ArgumentException(nameof(type));
             }
 
-            this.AddHandler(type, registerAttribute);
+            PacketByRefTypeAttribute? byRefAttribute = type.GetCustomAttribute<PacketByRefTypeAttribute>();
 
-            if (!rebuildHandlers)
-            {
-                return;
-            }
-
-            this.RebuildHandlers();
+            this.AddHandler(type, registerAttribute, byRefAttribute, rebuildHandlers);
         }
 
-        protected void AddHandler(Type type, PacketManagerRegisterAttribute registerAttribute, bool rebuildHandlers = true)
+        protected void AddHandler(Type type, PacketManagerRegisterAttribute registerAttribute, PacketByRefTypeAttribute? byRefAttribute, bool rebuildHandlers = true)
         {
-            this.IncomingHandlersType.Add(type, this.BuildHandlerData(type, registerAttribute));
+            this.IncomingHandlersType.Add(type, this.BuildHandlerData(type, registerAttribute, byRefAttribute));
 
-            if (!rebuildHandlers)
+            if (rebuildHandlers)
             {
-                return;
+                this.RebuildHandlers();
             }
-
-            this.RebuildHandlers();
         }
 
         protected void AddHandlers(ICollection<Type> types, bool rebuildHandlers = true)
@@ -59,24 +52,20 @@ namespace Net.Communication.Manager
                 this.AddHandler(type, rebuildHandlers: false);
             }
 
-            if (!rebuildHandlers)
+            if (rebuildHandlers)
             {
-                return;
+                this.RebuildHandlers();
             }
-
-            this.RebuildHandlers();
         }
 
         protected void RemoveHandler(Type type, bool rebuildHandlers = true)
         {
             this.IncomingHandlersType.Remove(type);
 
-            if (!rebuildHandlers)
+            if (rebuildHandlers)
             {
-                return;
+                this.RebuildHandlers();
             }
-
-            this.RebuildHandlers();
         }
     }
 }

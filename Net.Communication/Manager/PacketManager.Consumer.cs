@@ -1,30 +1,28 @@
-﻿using Net.Communication.Attributes;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
+using Net.Communication.Attributes;
 
 namespace Net.Communication.Manager
 {
     public abstract partial class PacketManager<T>
     {
-        private readonly struct ComposerData
+        private readonly struct ConsumerData
         {
             public T Id { get; }
             public int Order { get; }
 
-            public Type? HandlesType { get; }
-
-            public ComposerData(T id, int order, Type? handlesType)
+            public ConsumerData(T id, int order)
             {
                 this.Id = id;
                 this.Order = order;
-
-                this.HandlesType = handlesType;
             }
         }
 
-        protected void AddComposer(Type type, bool rebuildHandlers = true)
+        protected void AddConsumer(Type type, bool rebuildHandlers = true)
         {
             PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>();
             if (registerAttribute == null)
@@ -32,12 +30,12 @@ namespace Net.Communication.Manager
                 throw new ArgumentException(nameof(type));
             }
 
-            this.AddComposer(type, registerAttribute, rebuildHandlers);
+            this.AddConsumer(type, registerAttribute, rebuildHandlers);
         }
 
-        protected void AddComposer(Type type, PacketManagerRegisterAttribute registerAttribute, bool rebuildHandlers = true)
+        protected void AddConsumer(Type type, PacketManagerRegisterAttribute registerAttribute, bool rebuildHandlers = true)
         {
-            this.OutgoingComposersType.Add(type, this.BuildComposerData(type, registerAttribute));
+            this.IncomingConsumersType.Add(type, this.BuildConsumerData(type, registerAttribute));
 
             if (rebuildHandlers)
             {
@@ -45,11 +43,11 @@ namespace Net.Communication.Manager
             }
         }
 
-        protected void AddComposers(ICollection<Type> types, bool rebuildHandlers = true)
+        protected void AddConsumers(ICollection<Type> types, bool rebuildHandlers = true)
         {
             foreach (Type type in types)
             {
-                this.AddComposer(type, rebuildHandlers: false);
+                this.AddConsumer(type, rebuildHandlers: false);
             }
 
             if (rebuildHandlers)
@@ -58,9 +56,9 @@ namespace Net.Communication.Manager
             }
         }
 
-        protected void RemoveComposer(Type type, bool rebuildHandlers = true)
+        protected void RemoveConsumer(Type type, bool rebuildHandlers = true)
         {
-            this.OutgoingComposersType.Remove(type);
+            this.IncomingConsumersType.Remove(type);
 
             if (rebuildHandlers)
             {
