@@ -217,21 +217,21 @@ namespace Net.Sockets
         {
             try
             {
-                //Cancel the send pipe reader, we could never send more data and be stuck
-                this.SendPipe!.Reader.CancelPendingRead();
-            }
-            catch (Exception e)
-            {
-                AbstractPipelineSocket.Logger.Error("Failed to cancel send pipe reader", e);
-            }
-
-            try
-            {
                 reader.Complete();
             }
             catch (Exception e)
             {
                 AbstractPipelineSocket.Logger.Error("Failed to complete receive pipe reader", e);
+            }
+
+            try
+            {
+                //Complete the send queue, allows all the left over data to be sent to the client
+                this.SendQueue!.Complete();
+            }
+            catch (Exception e)
+            {
+                AbstractPipelineSocket.Logger.Error("Failed to cancel send pipe reader", e);
             }
 
             SocketStatus old = this.Status.Or(SocketStatus.ReceiveClosed);
@@ -267,7 +267,13 @@ namespace Net.Sockets
                             break;
                         }
 
-                        task = await queue.ReceiveAsync();
+                        bool available = await queue.OutputAvailableAsync();
+                        if (available)
+                        {
+                            continue;
+                        }
+
+                        break;
                     }
 
                     this.ProcessWriter(writer, task);
@@ -279,7 +285,7 @@ namespace Net.Sockets
             }
             finally
             {
-                this.HandleSendCompleted(writer);
+                this.HandleSendCompleted(queue, writer);
             }
         }
 
@@ -294,16 +300,25 @@ namespace Net.Sockets
             packetWriter.Dispose(flushWriter: false);
         }
 
-        private void HandleSendCompleted(PipeWriter writer)
+        private void HandleSendCompleted(BufferBlock<ISendQueueTask> queue, PipeWriter writer)
         {
             try
             {
-                //Shutdown the send, we aren't sending anything anymore
-                this.Socket.Shutdown(SocketShutdown.Send);
+                //Cancel the read pipe reader, the send one is quitting, the socket is shutting down..
+                this.ReceivePipe!.Reader.CancelPendingRead();
             }
-            catch
+            catch (Exception e)
             {
-                //Ignored
+                AbstractPipelineSocket.Logger.Error("Failed to cancel send pipe reader", e);
+            }
+
+            try
+            {
+                queue.Complete();
+            }
+            catch (Exception e)
+            {
+                AbstractPipelineSocket.Logger.Error("Failed to complete send queue", e);
             }
 
             try
@@ -329,11 +344,6 @@ namespace Net.Sockets
                     if (!reader.TryRead(out ReadResult readResult))
                     {
                         readResult = await reader.ReadAsync().ConfigureAwait(false);
-                    }
-
-                    if (readResult.IsCanceled || readResult.IsCompleted)
-                    {
-                        break;
                     }
 
                     ReadOnlySequence<byte> buffer = readResult.Buffer;
@@ -364,6 +374,12 @@ namespace Net.Sockets
                         await eventArgs;
                     }
 
+                    //Try to send before exiting!
+                    if (readResult.IsCanceled || readResult.IsCompleted)
+                    {
+                        break;
+                    }
+
                     switch (eventArgs.SocketError)
                     {
                         case SocketError.Success:
@@ -390,12 +406,12 @@ namespace Net.Sockets
         {
             try
             {
-                //Cancel the read pipe reader, we could never receive more data and be stuck
-                this.ReceivePipe!.Reader.CancelPendingRead();
+                //Shutdown the send, we aren't sending anything anymore
+                this.Socket.Shutdown(SocketShutdown.Send);
             }
-            catch (Exception e)
+            catch
             {
-                AbstractPipelineSocket.Logger.Error("Failed to cancel send pipe reader", e);
+                //Ignored
             }
 
             try
