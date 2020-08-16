@@ -8,26 +8,31 @@ namespace Net.Buffers
     {
 #if NET5_0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteFixedString(Utf8Span value)
+        public void WriteFixedUInt16Utf8(Utf8Span value)
         {
             this.WriteUInt16((ushort)value.Bytes.Length);
             this.WriteBytes(value.Bytes);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteFixedString(Utf8String value)
+        public void WriteFixedUInt32Utf8(Utf8Span value)
         {
-            ReadOnlySpan<byte> bytes = value.AsBytes();
-
-            this.WriteUInt16((ushort)bytes.Length);
-            this.WriteBytes(bytes);
+            this.WriteUInt32((uint)value.Bytes.Length);
+            this.WriteBytes(value.Bytes);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteLineBrokenString(Utf8Span value, byte breaker)
+        public void WriteFixed7BitEncodedUIntUtf8(Utf8Span value)
+        {
+            this.Write7BitEncodedUInt32((uint)value.Bytes.Length);
+            this.WriteBytes(value.Bytes);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteDelimiterBrokenUtf8(Utf8Span value, byte delimiter)
         {
             this.WriteBytes(value.Bytes);
-            this.WriteByte(breaker);
+            this.WriteByte(delimiter);
         }
 #endif
     }

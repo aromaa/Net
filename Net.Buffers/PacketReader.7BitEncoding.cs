@@ -110,6 +110,7 @@ namespace Net.Buffers
 
             private T Value;
             private int Shift;
+
             public bool Done => this.Shift == -1;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -186,7 +187,7 @@ namespace Net.Buffers
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool Complete(out T value)
+            private bool Complete(out T value)
             {
                 this.Shift = -1;
 

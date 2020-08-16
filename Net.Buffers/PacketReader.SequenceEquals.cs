@@ -32,5 +32,27 @@ namespace Net.Buffers
 
             return bytes.SequenceEqual(other);
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int SequenceCompareTo(ReadOnlySpan<byte> other)
+        {
+            this.TryPeekBytes(other.Length, out ReadOnlySequence<byte> sequence);
+
+            if (sequence.IsSingleSegment)
+            {
+                return sequence.First.Span.SequenceCompareTo(other);
+            }
+
+            long sequenceLength = sequence.Length;
+
+            //Hmm..
+            Span<byte> bytes = sequenceLength <= 128
+                ? stackalloc byte[(int)sequenceLength]
+                : new byte[sequenceLength];
+
+            sequence.CopyTo(bytes);
+
+            return bytes.SequenceCompareTo(other);
+        }
     }
 }
