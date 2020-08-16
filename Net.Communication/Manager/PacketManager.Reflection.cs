@@ -29,7 +29,7 @@ namespace Net.Communication.Manager
                         continue;
                     }
 
-                    if (!registerAttribute.Enabled || registerAttribute.DefaultManager != this.GetType())
+                    if (!registerAttribute.Enabled || (!registerAttribute.DefaultManager?.IsAssignableFrom(this.GetType()) ?? true))
                     {
                         string[] targetTags = type.GetCustomAttribute<PacketManagerTagsAttribute>()?.Tags ?? Array.Empty<string>();
                         if (!targetTags.Intersect(managerTags).Any())

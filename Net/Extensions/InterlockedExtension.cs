@@ -13,13 +13,13 @@ namespace Net.Extensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static T Or<T>(ref this T @this, T value) where T: struct, Enum
         {
-            if (Unsafe.SizeOf<T>() == 4)
+            if (Unsafe.SizeOf<T>() == sizeof(int))
             {
                 int result = Interlocked.Or(ref Unsafe.As<T, int>(ref @this), Unsafe.As<T, int>(ref value));
 
                 return Unsafe.As<int, T>(ref result);
             }
-            else if (Unsafe.SizeOf<T>() == 8)
+            else if (Unsafe.SizeOf<T>() == sizeof(long))
             {
                 long result = Interlocked.Or(ref Unsafe.As<T, long>(ref @this), Unsafe.As<T, long>(ref value));
 
