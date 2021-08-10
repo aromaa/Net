@@ -9,7 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Net.Buffers;
 using Net.Extensions;
 using Net.Metadata;
@@ -21,13 +21,13 @@ namespace Net.Sockets
 {
     internal abstract class AbstractPipelineSocket : ISocket
     {
-        private static readonly ILog Logger = LogManager.GetLogger(MethodBase.GetCurrentMethod()!.DeclaringType);
-
-        protected static readonly PipeOptions PipeOptions = new PipeOptions(
+        protected static readonly PipeOptions PipeOptions = new(
             useSynchronizationContext: false
         );
 
         protected Socket Socket { get; }
+
+        public ILogger? Logger { protected get; init; }
 
         public SocketId Id { get; }
 
@@ -162,7 +162,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to complete receive pipe writer", e);
+                this.Logger?.LogError(e, "Failed to complete receive pipe writer");
             }
         }
 
@@ -203,9 +203,21 @@ namespace Net.Sockets
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private SequencePosition HandleData(ref ReadOnlySequence<byte> buffer)
         {
-            PacketReader reader = new PacketReader(buffer);
+            PacketReader reader = new(buffer);
 
-            this.ProcessIncomingData(ref reader);
+            long consumed = reader.Consumed;
+
+            while (true)
+            {
+	            this.ProcessIncomingData(ref reader);
+
+                if (reader.End || consumed == reader.Consumed)
+	            {
+		            break;
+	            }
+
+	            consumed = reader.Consumed;
+            }
 
             return reader.Position;
         }
@@ -221,7 +233,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to complete receive pipe reader", e);
+	            this.Logger?.LogError(e, "Failed to complete receive pipe reader");
             }
 
             try
@@ -231,7 +243,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to cancel send pipe reader", e);
+	            this.Logger?.LogError(e, "Failed to cancel send pipe reader");
             }
 
             SocketStatus old = this.Status.Or(SocketStatus.ReceiveClosed);
@@ -293,7 +305,7 @@ namespace Net.Sockets
         private void ProcessWriter(PipeWriter writer, ISendQueueTask task)
         {
             //TODO: Fix pipeline stuff!
-            PacketWriter packetWriter = new PacketWriter(writer);
+            PacketWriter packetWriter = new(writer);
 
             task.Write(this.Pipeline, ref packetWriter);
 
@@ -309,7 +321,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to cancel send pipe reader", e);
+	            this.Logger?.LogError(e, "Failed to cancel send pipe reader");
             }
 
             try
@@ -318,7 +330,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to complete send queue", e);
+	            this.Logger?.LogError(e, "Failed to complete send queue");
             }
 
             try
@@ -327,7 +339,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to complete send pipe writer", e);
+	            this.Logger?.LogError(e, "Failed to complete send pipe writer");
             }
         }
 
@@ -335,9 +347,9 @@ namespace Net.Sockets
         {
             try
             {
-                using SocketReceiveAwaitableEventArgs eventArgs = new SocketReceiveAwaitableEventArgs(AbstractPipelineSocket.PipeOptions.ReaderScheduler);
+                using SocketReceiveAwaitableEventArgs eventArgs = new(AbstractPipelineSocket.PipeOptions.ReaderScheduler);
 
-                List<ArraySegment<byte>> bufferList = new List<ArraySegment<byte>>();
+                List<ArraySegment<byte>> bufferList = new();
 
                 while (true)
                 {
@@ -420,7 +432,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to complete send pipe reader", e);
+                this.Logger?.LogError(e, "Failed to complete send pipe reader");
             }
 
             SocketStatus old = this.Status.Or(SocketStatus.SendClosed);
@@ -441,7 +453,7 @@ namespace Net.Sockets
                 return;
             }
 
-            AbstractPipelineSocket.Logger.Fatal(reason, ex);
+            this.Logger?.LogError(ex, reason);
         }
 
         public void Disconnect(string? reason = default) => this.DisconnectInternal(reason);
@@ -461,7 +473,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to cancel receive reader", e);
+	            this.Logger?.LogError(e, "Failed to cancel receive reader");
             }
 
             this.OnDisconnect(reason);
@@ -497,7 +509,7 @@ namespace Net.Sockets
                 }
                 catch (Exception e)
                 {
-                    AbstractPipelineSocket.Logger.Error("Failed to dispose the socket", e);
+	                this.Logger?.LogError(e, "Failed to dispose the socket");
                 }
             }
         }
@@ -521,7 +533,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to complete receive pipe writer", e);
+                this.Logger?.LogError(e, "Failed to complete receive pipe writer");
             }
 
             try
@@ -530,7 +542,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to complete receive pipe reader", e);
+                this.Logger?.LogError(e, "Failed to complete receive pipe reader");
             }
 
             try
@@ -539,7 +551,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to execute disconnect event", e);
+                this.Logger?.LogError(e, "Failed to execute disconnect event");
             }
 
             this.OnClose();
@@ -552,7 +564,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to complete send pipe writer", e);
+	            this.Logger?.LogError(e, "Failed to complete send pipe writer");
             }
 
             try
@@ -561,7 +573,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to complete send pipe reader", e);
+                this.Logger?.LogError(e, "Failed to complete send pipe reader");
             }
 
             try
@@ -570,7 +582,7 @@ namespace Net.Sockets
             }
             catch (Exception e)
             {
-                AbstractPipelineSocket.Logger.Error("Failed to dispose the socket", e);
+                this.Logger?.LogError(e, "Failed to dispose the socket");
             }
         }
 

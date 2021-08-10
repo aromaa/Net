@@ -126,7 +126,7 @@ namespace Net.Buffers
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public PacketWriter ReservedFixedSlice(int amount) => new PacketWriter(this.GetBuffer(amount));
+        public PacketWriter ReservedFixedSlice(int amount) => new(this.GetBuffer(amount));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private Span<byte> GetBuffer(int amount)

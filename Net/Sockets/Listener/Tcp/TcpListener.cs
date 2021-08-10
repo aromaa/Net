@@ -5,7 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Threading.Tasks;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Net.Sockets.Async;
 using Net.Sockets.Connection.Tcp;
 
@@ -13,9 +13,10 @@ namespace Net.Sockets.Listener.Tcp
 {
     internal sealed class TcpListener : IListener
     {
-        private static readonly ILog Logger = LogManager.GetLogger(MethodBase.GetCurrentMethod()!.DeclaringType);
-
         private readonly Socket Socket;
+
+        private readonly ILogger<AbstractPipelineSocket>? ListenerLogger;
+        private readonly ILogger<TcpSocketConnection>? ConnectionLogger;
 
         private volatile bool Disposed;
 
@@ -32,6 +33,20 @@ namespace Net.Sockets.Listener.Tcp
             this.Socket.Listen();
         }
 
+        public IServiceProvider? ServiceProvider
+		{
+            init
+            {
+                if (value is null)
+				{
+                    return;
+				}
+
+                this.ListenerLogger = (ILogger<AbstractPipelineSocket>?)value.GetService(typeof(ILogger<AbstractPipelineSocket>));
+                this.ConnectionLogger = (ILogger<TcpSocketConnection>?)value.GetService(typeof(ILogger<TcpSocketConnection>));
+            }
+		}
+
         public EndPoint LocalEndPoint => this.Socket.LocalEndPoint!;
 
         internal void StartListening()
@@ -41,7 +56,7 @@ namespace Net.Sockets.Listener.Tcp
 
         private async Task Accept()
         {
-            using SocketAcceptAwaitableEventArgs eventArgs = new SocketAcceptAwaitableEventArgs(PipeScheduler.ThreadPool);
+            using SocketAcceptAwaitableEventArgs eventArgs = new(PipeScheduler.ThreadPool);
 
             while (!this.Disposed)
             {
@@ -60,7 +75,10 @@ namespace Net.Sockets.Listener.Tcp
                             continue;
                     }
 
-                    TcpSocketConnection connection = new TcpSocketConnection(socket);
+                    TcpSocketConnection connection = new(socket)
+                    {
+                        Logger = this.ConnectionLogger
+                    };
 
                     try
                     {
@@ -78,7 +96,7 @@ namespace Net.Sockets.Listener.Tcp
                 }
                 catch (Exception e)
                 {
-                    TcpListener.Logger.Error("Failed to accept socket connection", e);
+	                this.ListenerLogger?.LogError(e, "Failed to accept socket connection");
                 }
             }
         }

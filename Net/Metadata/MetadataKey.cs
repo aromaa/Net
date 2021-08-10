@@ -26,6 +26,6 @@ namespace Net.Metadata
         {
         }
 
-        public static MetadataKey<T> Create(string name) => new MetadataKey<T>(MetadataKey.GetNextId(), name);
+        public static MetadataKey<T> Create(string name) => new(MetadataKey.GetNextId(), name);
     }
 }

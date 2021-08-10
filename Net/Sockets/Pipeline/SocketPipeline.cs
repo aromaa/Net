@@ -14,56 +14,71 @@ namespace Net.Sockets.Pipeline
 
         public IPipelineHandlerContext Context { get; private set; }
 
-
-        private readonly List<AbstractSimplePipelineHandlerContext> Pipeline;
-
         public SocketPipeline(ISocket socket)
         {
             this.Socket = socket;
 
             this.Context = new TailPipelineHandlerContext(socket);
-
-            this.Pipeline = new List<AbstractSimplePipelineHandlerContext>();
         }
 
         public void AddHandlerFirst<T>(T handler) where T: IPipelineHandler
         {
-            lock (this.Pipeline)
+            lock (this.Context)
             {
-                AbstractSimplePipelineHandlerContext context = SimplePipelineHandlerContext.AddHandlerFirst(this.Socket, handler, this.Context);
-
-                this.Pipeline.Add(context);
-
-                this.Context = context;
+                this.Context = new SimplePipelineHandlerContext(this.Socket, handler, this.Context);
             }
         }
 
         public void AddHandlerLast<T>(T handler) where T : IPipelineHandler
         {
-            //TODO: We need to rebuild the whole context!
-            throw new NotImplementedException();
-        }
-
-        public void RemoveHandler<T>(T handler) where T : IPipelineHandler
-        {
-            lock (this.Pipeline)
+            lock (this.Context)
             {
-                //TODO: Lmao..
-
-                IPipelineHandlerContext context = new TailPipelineHandlerContext(this.Socket);
-                foreach (AbstractSimplePipelineHandlerContext pipelineContext in this.Pipeline.ToList())
+                if (this.Context is TailPipelineHandlerContext)
                 {
-                    if (pipelineContext.Handler.Equals(handler))
-                    {
-                        this.Pipeline.Remove(pipelineContext);
+                    this.Context = new SimplePipelineHandlerContext(this.Socket, handler, this.Context);
 
-                        continue;
-                    }
-
-                    context = SimplePipelineHandlerContext.AddHandlerFirst(this.Socket, pipelineContext.Handler, context);
+                    return;
                 }
 
-                this.Context = context;
+                IPipelineHandlerContext last = this.Context;
+
+                while (last.Next is not TailPipelineHandlerContext)
+                {
+	                last = last.Next!;
+                }
+
+                last.SetNext(new SimplePipelineHandlerContext(this.Socket, handler, last.Next!));
+            }
+        }
+
+        public void RemoveHandler(IPipelineHandler handler)
+        {
+            lock (this.Context)
+            {
+	            if (this.Context.Handler == handler)
+	            {
+                    this.Context = this.Context.Next!;
+
+                    return;
+	            }
+
+                IPipelineHandlerContext last = this.Context;
+                IPipelineHandlerContext? next = last.Next;
+
+                while (next is not null)
+                {
+                    if (next.Handler == handler)
+                    {
+                        next.Remove();
+
+	                    last.SetNext(next.Next!);
+
+                        return;
+                    }
+
+                    last = next;
+                    next = next.Next;
+                }
             }
         }
 

@@ -13,14 +13,14 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Incoming
 {
     public class IncomingObjectHandlerTests
     {
-        private DummyContext Context = new DummyContext();
+        private DummyContext Context = new();
 
         [Fact]
         public void TestHandlerReference()
         {
             string value = string.Empty;
 
-            Handler handler = new Handler();
+            Handler handler = new();
             handler.Handle(this.Context, ref value);
 
             Assert.True(handler.Executed);
@@ -32,7 +32,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Incoming
         {
             int value = default;
 
-            Handler handler = new Handler();
+            Handler handler = new();
             handler.Handle(this.Context, ref value);
 
             Assert.True(handler.Executed);
@@ -44,7 +44,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Incoming
         {
             string value = string.Empty;
 
-            HandlerGeneric handler = new HandlerGeneric();
+            HandlerGeneric handler = new();
             handler.Handle(this.Context, ref value);
 
             Assert.True(handler.Executed);
@@ -56,7 +56,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Incoming
         {
             string value = string.Empty;
 
-            HandlerGeneric handler = new HandlerGeneric();
+            HandlerGeneric handler = new();
             ((IIncomingObjectHandler)handler).Handle(this.Context, ref value);
 
             Assert.True(handler.Executed);
@@ -68,7 +68,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Incoming
         {
             object value = null;
 
-            HandlerGeneric handler = new HandlerGeneric();
+            HandlerGeneric handler = new();
             ((IIncomingObjectHandler)handler).Handle(this.Context, ref value);
 
             Assert.False(handler.Executed);
@@ -80,7 +80,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Incoming
         {
             int value = 0;
 
-            HandlerGenericValueType handler = new HandlerGenericValueType();
+            HandlerGenericValueType handler = new();
             handler.Handle(this.Context, ref value);
 
             Assert.True(handler.Executed);
@@ -92,7 +92,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Incoming
         {
             int value = 0;
 
-            HandlerGenericValueType handler = new HandlerGenericValueType();
+            HandlerGenericValueType handler = new();
             ((IIncomingObjectHandler)handler).Handle(this.Context, ref value);
 
             Assert.True(handler.Executed);
@@ -104,7 +104,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Incoming
         {
             string value = string.Empty;
 
-            HandlerGenericValueType handler = new HandlerGenericValueType();
+            HandlerGenericValueType handler = new();
             ((IIncomingObjectHandler)handler).Handle(this.Context, ref value);
 
             Assert.False(handler.Executed);
@@ -118,6 +118,8 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Incoming
             public ISocket Socket => throw new NotImplementedException();
 
             public IPipelineHandler Handler => throw new NotImplementedException();
+
+            public IPipelineHandlerContext Next => throw new NotImplementedException();
 
             public void ProgressReadHandler<TPacket>(ref TPacket packet) => this.ProgressReadHandlerCalled = true;
             public void ProgressReadHandler(ref PacketReader packet) => throw new NotImplementedException();

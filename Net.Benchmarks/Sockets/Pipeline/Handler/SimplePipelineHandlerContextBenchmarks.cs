@@ -17,43 +17,43 @@ namespace Net.Benchmarks.Sockets.Pipeline.Handler
     [SimpleJob(RunStrategy.Throughput, targetCount: 1, invocationCount: 100000000)]
     public class SimplePipelineHandlerContextBenchmarks
     {
-        private readonly SimplePipelineHandlerContext<Handler, TailPipelineHandlerContext> HandlerContext = SimplePipelineHandlerContext.Create(null!, new Handler());
-        private readonly SimplePipelineHandlerContext<HandlerGeneric, TailPipelineHandlerContext> GenericHandlerContext = SimplePipelineHandlerContext.Create(null!, new HandlerGeneric());
+        //private readonly SimplePipelineHandlerContext<Handler, TailPipelineHandlerContext> HandlerContext = SimplePipelineHandlerContext.Create(null!, new Handler());
+        //private readonly SimplePipelineHandlerContext<HandlerGeneric, TailPipelineHandlerContext> GenericHandlerContext = SimplePipelineHandlerContext.Create(null!, new HandlerGeneric());
 
-        private readonly SimplePipelineHandlerContext<HandlerStruct, TailPipelineHandlerContext> HandlerStructContext = SimplePipelineHandlerContext.Create(null!, new HandlerStruct());
-        private readonly SimplePipelineHandlerContext<HandlerGenericStruct, TailPipelineHandlerContext> GenericHandlerStructContext = SimplePipelineHandlerContext.Create(null!, new HandlerGenericStruct());
+        //private readonly SimplePipelineHandlerContext<HandlerStruct, TailPipelineHandlerContext> HandlerStructContext = SimplePipelineHandlerContext.Create(null!, new HandlerStruct());
+        //private readonly SimplePipelineHandlerContext<HandlerGenericStruct, TailPipelineHandlerContext> GenericHandlerStructContext = SimplePipelineHandlerContext.Create(null!, new HandlerGenericStruct());
 
-        [Benchmark]
-        public void HandlerBenchmark()
-        {
-            int value = default;
+        //[Benchmark]
+        //public void HandlerBenchmark()
+        //{
+        //    int value = default;
 
-            this.HandlerContext.ProgressReadHandler(ref value);
-        }
+        //    this.HandlerContext.ProgressReadHandler(ref value);
+        //}
 
-        [Benchmark]
-        public void GenericHandlerBenchmark()
-        {
-            int value = default;
+        //[Benchmark]
+        //public void GenericHandlerBenchmark()
+        //{
+        //    int value = default;
 
-            this.GenericHandlerContext.ProgressReadHandler(ref value);
-        }
+        //    this.GenericHandlerContext.ProgressReadHandler(ref value);
+        //}
 
-        [Benchmark]
-        public void HandlerStructBenchmark()
-        {
-            int value = default;
+        //[Benchmark]
+        //public void HandlerStructBenchmark()
+        //{
+        //    int value = default;
 
-            this.HandlerStructContext.ProgressReadHandler(ref value);
-        }
+        //    this.HandlerStructContext.ProgressReadHandler(ref value);
+        //}
 
-        [Benchmark]
-        public void GenericHandlerStructBenchmark()
-        {
-            int value = default;
+        //[Benchmark]
+        //public void GenericHandlerStructBenchmark()
+        //{
+        //    int value = default;
 
-            this.GenericHandlerStructContext.ProgressReadHandler(ref value);
-        }
+        //    this.GenericHandlerStructContext.ProgressReadHandler(ref value);
+        //}
 
         private sealed class Handler : IIncomingObjectHandler
         {

@@ -10,8 +10,8 @@ namespace Net.Utils
 {
     internal static class IPEndPointUtils
     {
-        internal static readonly IPEndPoint None = new IPEndPoint(IPAddress.None, 3);
-        internal static readonly IPEndPoint IPv6None = new IPEndPoint(IPAddress.IPv6None, 3);
+        internal static readonly IPEndPoint None = new(IPAddress.None, 3);
+        internal static readonly IPEndPoint IPv6None = new(IPAddress.IPv6None, 3);
 
         internal static IPEndPoint GetNone(AddressFamily addressFamily)
         {

@@ -25,7 +25,7 @@ namespace Net.Sockets
             this.Port = port;
         }
 
-        public SocketAddress Allocate() => new SocketAddress(this.Address.ToArray(), this.Port);
+        public SocketAddress Allocate() => new(this.Address.ToArray(), this.Port);
 
         public override bool Equals(object? obj) => obj is SocketAddress other && this.Equals(other);
         public bool Equals(SocketAddress other)

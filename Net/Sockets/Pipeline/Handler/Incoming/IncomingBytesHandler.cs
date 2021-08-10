@@ -7,6 +7,8 @@ namespace Net.Sockets.Pipeline.Handler.Incoming
 {
     public abstract class IncomingBytesHandler : IIncomingObjectHandler<ReadOnlySequence<byte>>, IIncomingObjectHandler<byte[]>
     {
+        protected bool SinglePass { get; set; }
+
         protected abstract void Decode(IPipelineHandlerContext context, ref PacketReader reader);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -18,7 +20,7 @@ namespace Net.Sockets.Pipeline.Handler.Incoming
             {
                 this.Decode(context, ref reader);
 
-                if (reader.End || reader.Partial || consumed == reader.Consumed)
+                if (this.SinglePass || reader.End || consumed == reader.Consumed)
                 {
                     break;
                 }
@@ -30,17 +32,17 @@ namespace Net.Sockets.Pipeline.Handler.Incoming
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Handle(IPipelineHandlerContext context, ref ReadOnlySequence<byte> packet)
         {
-            PacketReader packetReader = new PacketReader(packet);
+            PacketReader packetReader = new(packet);
 
             this.Handle(context, ref packetReader);
 
-            packet = packetReader.Partial ? packet : packetReader.UnreadSequence;
+            packet = packetReader.UnreadSequence;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Handle(IPipelineHandlerContext context, ref byte[] packet)
         {
-            ReadOnlySequence<byte> sequence = new ReadOnlySequence<byte>(packet);
+            ReadOnlySequence<byte> sequence = new(packet);
 
             this.Handle(context, ref sequence);
 

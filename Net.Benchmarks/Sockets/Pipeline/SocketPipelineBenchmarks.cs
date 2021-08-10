@@ -109,7 +109,7 @@ namespace Net.Benchmarks.Sockets.Pipeline
 
             internal static DummyIPipelineSocket Create(Action<ISocket> action)
             {
-                DummyIPipelineSocket socket = new DummyIPipelineSocket();
+                DummyIPipelineSocket socket = new();
 
                 action.Invoke(socket);
 

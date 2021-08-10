@@ -31,6 +31,6 @@ namespace Net.Sockets.Udp
         }
 
 
-        public PacketReader Reader => new PacketReader(this.Data);
+        public PacketReader Reader => new(this.Data);
     }
 }

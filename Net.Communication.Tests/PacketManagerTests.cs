@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Net.Buffers;
 using Net.Communication.Attributes;
 using Net.Communication.Incoming.Consumer;
@@ -19,19 +20,18 @@ using Net.Sockets;
 using Net.Sockets.Pipeline;
 using Net.Sockets.Pipeline.Handler;
 using Net.Sockets.Pipeline.Handler.Incoming;
-using Ninject;
 using Xunit;
 
 namespace Net.Communication.Tests
 {
     public class PacketManagerTests
     {
-        private readonly IServiceProvider ServiceProvider = new StandardKernel();
+        private readonly IServiceProvider ServiceProvider = new ServiceCollection().BuildServiceProvider();
 
         [Fact]
         public void TestParserFound()
         {
-            TestParsersManager manager = new TestParsersManager(this.ServiceProvider);
+            TestParsersManager manager = new(this.ServiceProvider);
             manager.TryGetParser(3, out IIncomingPacketParser? parser);
             manager.TryGetConsumer(3, out IIncomingPacketConsumer? consumer);
 
@@ -42,7 +42,7 @@ namespace Net.Communication.Tests
         [Fact]
         public void TestParserNonGenericFound()
         {
-            TestParsersManager manager = new TestParsersManager(this.ServiceProvider);
+            TestParsersManager manager = new(this.ServiceProvider);
             manager.TryGetParser(5, out IIncomingPacketParser? parser);
             manager.TryGetConsumer(5, out IIncomingPacketConsumer? consumer);
 
@@ -53,7 +53,7 @@ namespace Net.Communication.Tests
         [Fact]
         public void TestConsumerFound()
         {
-            TestConsumersManager manager = new TestConsumersManager(this.ServiceProvider);
+            TestConsumersManager manager = new(this.ServiceProvider);
             manager.TryGetConsumer(6, out IIncomingPacketConsumer? consumer);
 
             Assert.IsType<TestConsumersManager.TestConsumer>(consumer);
@@ -62,7 +62,7 @@ namespace Net.Communication.Tests
         [Fact]
         public void TestComposerFound()
         {
-            TestComposersManager manager = new TestComposersManager(this.ServiceProvider);
+            TestComposersManager manager = new(this.ServiceProvider);
             manager.TryGetComposer<string>(out IOutgoingPacketComposer? composer, out uint id);
 
             Assert.IsType<TestComposersManager.TestComposer>(composer);
@@ -72,7 +72,7 @@ namespace Net.Communication.Tests
         [Fact]
         public void TestHandlerFound()
         {
-            TestHandlersManager manager = new TestHandlersManager(this.ServiceProvider);
+            TestHandlersManager manager = new(this.ServiceProvider);
             manager.TryGetHandler<string>(out IIncomingPacketHandler? handler);
 
             Assert.IsType<TestHandlersManager.TestHandler>(handler);
@@ -81,12 +81,12 @@ namespace Net.Communication.Tests
         [Fact]
         public void TestParserOnlyConsumerWorks()
         {
-            IncomingObjectCatcher catcher = new IncomingObjectCatcher();
+            IncomingObjectCatcher catcher = new();
 
             ISocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
             PacketReader reader = default;
 
-            TestParsersManager manager = new TestParsersManager(this.ServiceProvider);
+            TestParsersManager manager = new(this.ServiceProvider);
             manager.TryConsumePacket(socket.Pipeline.Context, ref reader, 3);
 
             Assert.Equal("Parser", catcher.Pop());
@@ -95,11 +95,11 @@ namespace Net.Communication.Tests
         [Fact]
         public void TestHandlerWorks()
         {
-            IncomingObjectCatcher catcher = new IncomingObjectCatcher();
+            IncomingObjectCatcher catcher = new();
 
             ISocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
 
-            TestHandlersManager manager = new TestHandlersManager(this.ServiceProvider);
+            TestHandlersManager manager = new(this.ServiceProvider);
             manager.TryHandlePacket(socket.Pipeline.Context, "Handler");
 
             Assert.Equal("Handler", catcher.Pop());
@@ -108,12 +108,12 @@ namespace Net.Communication.Tests
         [Fact]
         public void TestParserHandlerConsumerWorks()
         {
-            IncomingObjectCatcher catcher = new IncomingObjectCatcher();
+            IncomingObjectCatcher catcher = new();
 
             ISocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
             PacketReader reader = default;
 
-            TestParserHandlerManager manager = new TestParserHandlerManager(this.ServiceProvider);
+            TestParserHandlerManager manager = new(this.ServiceProvider);
             manager.TryConsumePacket(socket.Pipeline.Context, ref reader, 1);
 
             Assert.Equal("ParserHandler", catcher.Pop());
@@ -122,11 +122,11 @@ namespace Net.Communication.Tests
         [Fact]
         public void TestConsumerWorks()
         {
-            using MemoryStream stream = new MemoryStream();
+            using MemoryStream stream = new();
 
-            PacketWriter writer = new PacketWriter(PipeWriter.Create(stream));
+            PacketWriter writer = new(PipeWriter.Create(stream));
 
-            TestComposersManager manager = new TestComposersManager(this.ServiceProvider);
+            TestComposersManager manager = new(this.ServiceProvider);
             manager.TryComposePacket(ref writer, "Writer", out uint id);
 
             writer.Dispose();

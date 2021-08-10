@@ -11,18 +11,22 @@ namespace Net.Sockets.Listener
         public delegate void SocketEvent(ISocket socket);
 
         //Hoping to have alternative, somewhat good looking API, this is temp
-        public static IListener CreateTcpListener(IPEndPoint endPoint, SocketEvent acceptEvent)
+        public static IListener CreateTcpListener(IPEndPoint endPoint, SocketEvent acceptEvent, IServiceProvider? serviceProvider = default)
         {
-            TcpListener listener = new TcpListener(endPoint);
+            TcpListener listener = new(endPoint)
+            {
+                ServiceProvider = serviceProvider
+            };
+
             listener.AcceptEvent += acceptEvent;
             listener.StartListening();
 
             return listener;
         }
 
-        public static IListener CreateUdpListener(IPEndPoint endPoint, Action<SocketPipeline> pipeline)
+        public static IListener CreateUdpListener(IPEndPoint endPoint, Action<SocketPipeline> pipeline, IServiceProvider? serviceProvider = default)
         {
-            UdpListener listener = new UdpListener(endPoint);
+            UdpListener listener = new(endPoint);
 
             pipeline.Invoke(listener.Pipeline);
 

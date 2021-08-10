@@ -90,7 +90,7 @@ namespace Net.Collections
         {
             AbstractPipelineSocket.ISendQueueTask task = AbstractPipelineSocket.ISendQueueTask.Create(data);
 
-            List<Task> tasks = new List<Task>(this.Sockets.Count);
+            List<Task> tasks = new(this.Sockets.Count);
             foreach (ISocket socket in this.Values)
             {
                 tasks.Add(socket.SendAsyncInternal(task));
@@ -103,7 +103,7 @@ namespace Net.Collections
         {
             AbstractPipelineSocket.ISendQueueTask task = AbstractPipelineSocket.ISendQueueTask.Create(data);
 
-            List<Task> tasks = new List<Task>(this.Sockets.Count);
+            List<Task> tasks = new(this.Sockets.Count);
             foreach (ISocket socket in this.Values)
             {
                 if (matcher.Matches(socket))

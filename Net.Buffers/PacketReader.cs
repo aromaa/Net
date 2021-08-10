@@ -9,14 +9,10 @@ namespace Net.Buffers
     {
         internal SequenceReader<byte> Reader;
 
-        public bool Partial { get; private set; }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PacketReader(ReadOnlySequence<byte> buffer)
         {
             this.Reader = new SequenceReader<byte>(buffer);
-
-            this.Partial = false;
         }
 
         public SequencePosition Position => this.Reader.Position;
@@ -28,14 +24,6 @@ namespace Net.Buffers
 
         public bool End => this.Reader.End;
         public bool Readable => !this.Reader.End;
-
-        public void MarkPartial() => this.Partial = true;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void ResetState()
-        {
-            this.Partial = false;
-        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte ReadByte() => this.Reader.TryRead(out byte value) ? value : throw new IndexOutOfRangeException();
@@ -119,7 +107,7 @@ namespace Net.Buffers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PacketReader Slice(long length)
         {
-            PacketReader reader = new PacketReader(this.Reader.Sequence.Slice(start: this.Reader.Position, length));
+            PacketReader reader = new(this.Reader.Sequence.Slice(start: this.Reader.Position, length));
 
             this.Reader.Advance(length);
 

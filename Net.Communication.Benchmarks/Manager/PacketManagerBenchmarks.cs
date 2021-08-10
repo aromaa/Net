@@ -5,19 +5,19 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
+using Microsoft.Extensions.DependencyInjection;
 using Net.Buffers;
 using Net.Communication.Attributes;
 using Net.Communication.Incoming.Handler;
 using Net.Communication.Incoming.Parser;
 using Net.Communication.Manager;
 using Net.Sockets.Pipeline.Handler;
-using Ninject;
 
 namespace Net.Communication.Benchmarks.Manager
 {
     public class PacketManagerBenchmarks
     {
-        private readonly TestManager TestManagerInstance = new TestManager(new StandardKernel());
+        private readonly TestManager TestManagerInstance = new(new ServiceCollection().BuildServiceProvider());
 
         [Benchmark]
         public void TestConsumeGeneric()

@@ -9,7 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Net.Buffers;
 using Net.Sockets.Async;
 using Net.Sockets.Pipeline;
@@ -18,8 +18,6 @@ namespace Net.Sockets.Connection.Tcp
 {
     internal sealed class TcpSocketConnection : AbstractPipelineSocket
     {
-        private static readonly ILog Logger = LogManager.GetLogger(MethodBase.GetCurrentMethod()!.DeclaringType);
-
         private string? DisconnectReason;
 
         internal TcpSocketConnection(Socket socket) : base(socket)
@@ -28,7 +26,7 @@ namespace Net.Sockets.Connection.Tcp
 
         protected override async Task HandleReceive(PipeWriter writer)
         {
-            using SocketReceiveAwaitableEventArgs eventArgs = new SocketReceiveAwaitableEventArgs(AbstractPipelineSocket.PipeOptions.WriterScheduler);
+            using SocketReceiveAwaitableEventArgs eventArgs = new(AbstractPipelineSocket.PipeOptions.WriterScheduler);
 
             while (true)
             {
@@ -71,7 +69,7 @@ namespace Net.Sockets.Connection.Tcp
 
         protected override void DoPrepare()
         {
-            TcpSocketConnection.Logger.Debug($"{this.Socket.RemoteEndPoint} connected");
+	        this.Logger?.LogDebug($"{this.Socket.RemoteEndPoint} connected");
         }
 
         public override void OnDisconnect(string? reason = default)
@@ -81,7 +79,7 @@ namespace Net.Sockets.Connection.Tcp
 
         protected override void OnClose()
         {
-            TcpSocketConnection.Logger.Debug($"{this.Socket.RemoteEndPoint} disconnected for reason {this.GetDisconnectReason()}");
+	        this.Logger?.LogDebug($"{this.Socket.RemoteEndPoint} disconnected for reason {this.GetDisconnectReason()}");
         }
 
         private string GetDisconnectReason() => this.DisconnectReason ?? "Disconnect (No reason specified)";

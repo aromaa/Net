@@ -6,7 +6,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
-using log4net;
 using Net.Collections.Extensions;
 using Net.Sockets;
 
@@ -171,6 +170,7 @@ namespace Net.Collections
                 collection.RemoveEvent!(this.Socket, ref this.UserDefinedData);
             }
 
+            [Flags]
             private enum EventState : uint
             {
                 AddExecuted = 1 << 0,

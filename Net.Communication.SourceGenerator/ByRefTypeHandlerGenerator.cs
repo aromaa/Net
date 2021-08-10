@@ -12,14 +12,14 @@ namespace Net.Communication.SourceGenerator
     [Generator]
     public partial class ByRefTypeHandlerGenerator : ISourceGenerator
     {
-        public void Initialize(InitializationContext context)
+        public void Initialize(GeneratorInitializationContext context)
         {
             context.RegisterForSyntaxNotifications(() => new SyntaxReceiver());
         }
 
-        public void Execute(SourceGeneratorContext context)
+        public void Execute(GeneratorExecutionContext context)
         {
-            if (!(context.SyntaxReceiver is SyntaxReceiver receiver))
+            if (context.SyntaxReceiver is not SyntaxReceiver receiver)
             {
                 return;
             }
@@ -36,7 +36,7 @@ namespace Net.Communication.SourceGenerator
             {
                 SemanticModel model = compilation.GetSemanticModel(@class.SyntaxTree);
 
-                if (!(model.GetDeclaredSymbol(@class) is ITypeSymbol symbol))
+                if (model.GetDeclaredSymbol(@class) is not ITypeSymbol symbol)
                 {
                     continue;
                 }
@@ -100,7 +100,7 @@ namespace Net.Communication.SourceGenerator
                     bool handler = (type & 2) != 0;
                     bool both = parser & handler;
 
-                    StringBuilder stringBuilder = new StringBuilder($@"
+                    StringBuilder stringBuilder = new($@"
 using Net.Buffers;
 using Net.Communication.Incoming.Consumer;
 using Net.Sockets.Pipeline.Handler;

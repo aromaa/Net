@@ -35,7 +35,7 @@ namespace Net.Sockets.Listener.Udp
 
         private static Socket CreateSocket(IPEndPoint endPoint)
         {
-            Socket socket = new Socket(endPoint.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            Socket socket = new(endPoint.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             socket.Bind(endPoint);
 
             return socket;
@@ -47,7 +47,7 @@ namespace Net.Sockets.Listener.Udp
 
             int mtu = MtuDefault + this.SourceHeaderLength;
 
-            using SocketReceiveAwaitableEventArgs eventArgs = new SocketReceiveAwaitableEventArgs(AbstractPipelineSocket.PipeOptions.WriterScheduler)
+            using SocketReceiveAwaitableEventArgs eventArgs = new(AbstractPipelineSocket.PipeOptions.WriterScheduler)
             {
                 RemoteEndPoint = IPEndPointUtils.GetNone(this.Socket.AddressFamily)
             };
@@ -104,8 +104,8 @@ namespace Net.Sockets.Listener.Udp
             ReadU(ref reader.GetReaderRef(), out ushort port);
             ReadU(ref reader.GetReaderRef(), out ushort length);
 
-            SocketAddress socketAddress = new SocketAddress(sourceAddress, port);
-            DatagramPacket datagram = new DatagramPacket(socketAddress, reader.ReadBytes(length));
+            SocketAddress socketAddress = new(sourceAddress, port);
+            DatagramPacket datagram = new(socketAddress, reader.ReadBytes(length));
 
             this.Pipeline.Read(ref datagram);
 

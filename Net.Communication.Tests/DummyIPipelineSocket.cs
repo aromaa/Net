@@ -41,7 +41,7 @@ namespace Net.Communication.Tests
 
         internal static DummyIPipelineSocket Create(Action<ISocket> action)
         {
-            DummyIPipelineSocket socket = new DummyIPipelineSocket();
+            DummyIPipelineSocket socket = new();
 
             action.Invoke(socket);
 

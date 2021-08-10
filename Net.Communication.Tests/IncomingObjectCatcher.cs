@@ -10,7 +10,7 @@ namespace Net.Communication.Tests
 {
     internal sealed class IncomingObjectCatcher : IIncomingObjectHandler
     {
-        private readonly Queue<object?> Objects = new Queue<object?>();
+        private readonly Queue<object?> Objects = new();
 
         public void Handle<T>(IPipelineHandlerContext context, ref T packet)
         {

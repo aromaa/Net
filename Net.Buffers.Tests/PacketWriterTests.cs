@@ -82,7 +82,7 @@ namespace Net.Buffers.Tests
         { 
             buffer = new byte[amount];
 
-            MemoryStream memoryStream = new MemoryStream(buffer);
+            MemoryStream memoryStream = new(buffer);
 
             return new PacketWriter(PipeWriter.Create(memoryStream));
         }
@@ -101,7 +101,7 @@ namespace Net.Buffers.Tests
 
             buffer = new byte[totalSize];
 
-            List<Memory<byte>> buffers = new List<Memory<byte>>(slices.Length);
+            List<Memory<byte>> buffers = new(slices.Length);
             foreach (int slice in slices)
             {
                 buffers.Add(buffer.AsMemory(pointer, slice));

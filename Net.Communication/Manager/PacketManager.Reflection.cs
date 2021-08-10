@@ -80,7 +80,7 @@ namespace Net.Communication.Manager
         private ConsumerData BuildConsumerData(Type type, int order = 0)
         {
             PacketParserIdAttribute? parserIdAttribute = type.GetCustomAttribute<PacketParserIdAttribute>();
-            if (parserIdAttribute == null || !(parserIdAttribute.Id is T parserId))
+            if (parserIdAttribute == null || parserIdAttribute.Id is not T parserId)
             {
                 throw new ArgumentException(nameof(type));
             }
@@ -99,7 +99,7 @@ namespace Net.Communication.Manager
         private ParserData BuildParserData(Type type, PacketByRefTypeAttribute? byRefAttribute, int order = 0)
         {
             PacketParserIdAttribute? parserIdAttribute = type.GetCustomAttribute<PacketParserIdAttribute>();
-            if (parserIdAttribute == null || !(parserIdAttribute.Id is T parserId))
+            if (parserIdAttribute == null || parserIdAttribute.Id is not T parserId)
             {
                 throw new ArgumentException(nameof(type));
             }
@@ -131,7 +131,7 @@ namespace Net.Communication.Manager
         private ComposerData BuildComposerData(Type type, int order = 0)
         {
             PacketComposerIdAttribute? consumerIdAttribute = type.GetCustomAttribute<PacketComposerIdAttribute>();
-            if (consumerIdAttribute == null || !(consumerIdAttribute.Id is T consumerId))
+            if (consumerIdAttribute == null || consumerIdAttribute.Id is not T consumerId)
             {
                 throw new ArgumentException(nameof(type));
             }

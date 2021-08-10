@@ -4,7 +4,8 @@ using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
-using log4net;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Net.Buffers;
 using Net.Communication.Incoming.Consumer;
 using Net.Communication.Incoming.Consumer.Internal;
@@ -17,7 +18,7 @@ namespace Net.Communication.Manager
 {
     public abstract partial class PacketManager<T> where T : notnull
     {
-        private static readonly ILog Logger = LogManager.GetLogger(MethodBase.GetCurrentMethod()!.DeclaringType);
+	    public ILogger<PacketManager<T>>? Logger { get; init; }
 
         protected IServiceProvider ServiceProvider { get; }
 
@@ -128,12 +129,12 @@ namespace Net.Communication.Manager
 
         protected void RebuildHandlers()
         {
-            Dictionary<T, IIncomingPacketConsumer> consumers = new Dictionary<T, IIncomingPacketConsumer>();
+            Dictionary<T, IIncomingPacketConsumer> consumers = new();
             foreach ((Type type, ConsumerData data) in this.IncomingConsumersType.OrderByDescending(kvp => kvp.Value.Order))
             {
-                if (!(this.ServiceProvider.GetService(type) is IIncomingPacketConsumer consumer))
+                if (ActivatorUtilities.CreateInstance(this.ServiceProvider, type) is not IIncomingPacketConsumer consumer)
                 {
-                    PacketManager<T>.Logger.Warn($"Type {type} was registered as IIncomingPacketConsumer but does not implement it!");
+	                this.Logger?.LogWarning($"Type {type} was registered as IIncomingPacketConsumer but does not implement it!");
 
                     continue;
                 }
@@ -142,19 +143,19 @@ namespace Net.Communication.Manager
             }
 
             //Handlers first so we can construct consumers from them when going thru parsers
-            Dictionary<Type, IIncomingPacketHandler> handlers = new Dictionary<Type, IIncomingPacketHandler>();
-            Dictionary<Type, object> byRefHandlers = new Dictionary<Type, object>(); //Special case
+            Dictionary<Type, IIncomingPacketHandler> handlers = new();
+            Dictionary<Type, object> byRefHandlers = new(); //Special case
             foreach ((Type type, HandlerData data) in this.IncomingHandlersType.OrderByDescending(kvp => kvp.Value.Order))
             {
-                object? handler = this.ServiceProvider.GetService(type);
-                if (!(handler is IIncomingPacketHandler packetHandler))
+                object? handler = ActivatorUtilities.CreateInstance(this.ServiceProvider, type);
+                if (handler is not IIncomingPacketHandler packetHandler)
                 {
                     //ByRef like types are special ones
                     if (data.HandlesType is null || !data.HandlesType.IsByRefLike)
                     {
-                        PacketManager<T>.Logger.Warn($"Type {type} was registered as IIncomingPacketHandler but does not implement it!");
+	                    this.Logger?.LogWarning($"Type {type} was registered as IIncomingPacketHandler but does not implement it!");
                     }
-                    else if (!(handler is null))
+                    else if (handler is not null)
                     {
                         byRefHandlers.Add(data.HandlesType, handler);
                     }
@@ -168,16 +169,16 @@ namespace Net.Communication.Manager
                 }
             }
 
-            Dictionary<T, IIncomingPacketParser> parsers = new Dictionary<T, IIncomingPacketParser>();
+            Dictionary<T, IIncomingPacketParser> parsers = new();
             foreach ((Type type, ParserData data) in this.IncomingParsersType.OrderByDescending(kvp => kvp.Value.Order))
             {
-                object? parser = this.ServiceProvider.GetService(type);
-                if (!(parser is IIncomingPacketParser packetParser))
+                object? parser = ActivatorUtilities.CreateInstance(this.ServiceProvider, type);
+                if (parser is not IIncomingPacketParser packetParser)
                 {
                     //ByRef like types are special ones
                     if (data.HandlesType is null || !data.HandlesType.IsByRefLike)
                     {
-                        PacketManager<T>.Logger.Warn($"Type {type} was registered as IIncomingPacketParser but does not implement it!");
+                        this.Logger?.LogWarning($"Type {type} was registered as IIncomingPacketParser but does not implement it!");
                     }
                     else if (!(parser is null) && byRefHandlers.TryGetValue(data.HandlesType, out object? byRefHandler))
                     {
@@ -199,12 +200,12 @@ namespace Net.Communication.Manager
                 consumers.TryAdd(data.Id, this.BuildConsumer(data.HandlesType, packetParser, handler));
             }
 
-            Dictionary<Type, (IOutgoingPacketComposer Composer, T Id)> composers = new Dictionary<Type, (IOutgoingPacketComposer, T)>();
+            Dictionary<Type, (IOutgoingPacketComposer Composer, T Id)> composers = new();
             foreach ((Type type, ComposerData data) in this.OutgoingComposersType.OrderByDescending(kvp => kvp.Value.Order))
             {
-                if (!(this.ServiceProvider.GetService(type) is IOutgoingPacketComposer composer))
+                if (ActivatorUtilities.CreateInstance(this.ServiceProvider, type) is not IOutgoingPacketComposer composer)
                 {
-                    PacketManager<T>.Logger.Warn($"Type {type} was registered as IOutgoingPacketComposer but does not implement it!");
+	                this.Logger?.LogWarning($"Type {type} was registered as IOutgoingPacketComposer but does not implement it!");
 
                     continue;
                 }

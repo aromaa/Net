@@ -9,14 +9,14 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing
 {
     public class OutgoingObjectHandlerTests
     {
-        private DummyContext Context = new DummyContext();
+        private DummyContext Context = new();
 
         [Fact]
         public void TestHandlerReference()
         {
             PacketWriter writer = default;
 
-            Handler handler = new Handler();
+            Handler handler = new();
             handler.Handle(this.Context, ref writer, string.Empty);
 
             Assert.True(handler.Executed);
@@ -28,7 +28,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing
         {
             PacketWriter writer = default;
 
-            Handler handler = new Handler();
+            Handler handler = new();
             handler.Handle(this.Context, ref writer, 0);
 
             Assert.True(handler.Executed);
@@ -40,7 +40,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing
         {
             PacketWriter writer = default;
 
-            HandlerGeneric handler = new HandlerGeneric();
+            HandlerGeneric handler = new();
             handler.Handle(this.Context, ref writer, string.Empty);
 
             Assert.True(handler.Executed);
@@ -52,7 +52,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing
         {
             PacketWriter writer = default;
 
-            HandlerGeneric handler = new HandlerGeneric();
+            HandlerGeneric handler = new();
             ((IOutgoingObjectHandler)handler).Handle(this.Context, ref writer, string.Empty);
 
             Assert.True(handler.Executed);
@@ -64,7 +64,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing
         {
             PacketWriter writer = default;
 
-            HandlerGeneric handler = new HandlerGeneric();
+            HandlerGeneric handler = new();
             ((IOutgoingObjectHandler)handler).Handle(this.Context, ref writer, (object)null);
 
             Assert.False(handler.Executed);
@@ -76,7 +76,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing
         {
             PacketWriter writer = default;
 
-            HandlerGenericValueType handler = new HandlerGenericValueType();
+            HandlerGenericValueType handler = new();
             handler.Handle(this.Context, ref writer, 0);
 
             Assert.True(handler.Executed);
@@ -88,7 +88,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing
         {
             PacketWriter writer = default;
 
-            HandlerGenericValueType handler = new HandlerGenericValueType();
+            HandlerGenericValueType handler = new();
             ((IOutgoingObjectHandler)handler).Handle(this.Context, ref writer, 0);
 
             Assert.True(handler.Executed);
@@ -100,7 +100,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing
         {
             PacketWriter writer = default;
 
-            HandlerGenericValueType handler = new HandlerGenericValueType();
+            HandlerGenericValueType handler = new();
             ((IOutgoingObjectHandler)handler).Handle(this.Context, ref writer, string.Empty);
 
             Assert.False(handler.Executed);
@@ -114,6 +114,8 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing
             public ISocket Socket => throw new NotImplementedException();
 
             public IPipelineHandler Handler => throw new NotImplementedException();
+
+            public IPipelineHandlerContext Next => throw new NotImplementedException();
 
             public void ProgressReadHandler<TPacket>(ref TPacket packet) => throw new NotImplementedException();
             public void ProgressReadHandler(ref PacketReader packet) => throw new NotImplementedException();
