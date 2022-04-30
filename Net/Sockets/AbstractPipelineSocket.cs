@@ -4,12 +4,10 @@ using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.Logging;
 using Net.Buffers;
 using Net.Extensions;
@@ -18,634 +16,633 @@ using Net.Sockets.Async;
 using Net.Sockets.Pipeline;
 using Net.Utils;
 
-namespace Net.Sockets
+namespace Net.Sockets;
+
+internal abstract class AbstractPipelineSocket : ISocket
 {
-    internal abstract class AbstractPipelineSocket : ISocket
-    {
-        protected static readonly PipeOptions PipeOptions = new(
-            useSynchronizationContext: false
-        );
+	protected static readonly PipeOptions PipeOptions = new(
+		useSynchronizationContext: false
+	);
 
-        public ILogger? Logger { protected get; init; }
+	public ILogger? Logger { protected get; init; }
 
-        protected Socket Socket { get; }
+	protected Socket Socket { get; }
 
-        public SocketId Id { get; }
+	public SocketId Id { get; }
 
-        private SocketStatus Status;
+	private SocketStatus Status;
 
-        public MetadataMap Metadata { get; }
-        public SocketPipeline Pipeline { get; }
+	public MetadataMap Metadata { get; }
+	public SocketPipeline Pipeline { get; }
 
-        private Pipe? ReceivePipe;
-        private Pipe? SendPipe;
+	private Pipe? ReceivePipe;
+	private Pipe? SendPipe;
 
-        private Channel<ISendQueueTask>? SendQueue;
+	private Channel<ISendQueueTask>? SendQueue;
 
-        private event SocketEvent<ISocket>? ConnectedEvent;
-        private event SocketEvent<ISocket>? DisconnectedEvent;
+	private event SocketEvent<ISocket>? ConnectedEvent;
+	private event SocketEvent<ISocket>? DisconnectedEvent;
 
-        protected AbstractPipelineSocket(Socket socket)
-        {
-            this.Socket = socket;
+	protected AbstractPipelineSocket(Socket socket)
+	{
+		this.Socket = socket;
 
-            this.Id = SocketId.GenerateNew();
+		this.Id = SocketId.GenerateNew();
 
-            this.Metadata = new MetadataMap();
-            this.Pipeline = new SocketPipeline(this);
-        }
+		this.Metadata = new MetadataMap();
+		this.Pipeline = new SocketPipeline(this);
+	}
 
-        public bool Closed => this.Status.HasFlag(SocketStatus.Disposed);
+	public bool Closed => this.Status.HasFlag(SocketStatus.Disposed);
 
-        public EndPoint? LocalEndPoint => this.Socket.LocalEndPoint;
-        public EndPoint? RemoteEndPoint => this.Socket.RemoteEndPoint;
+	public EndPoint? LocalEndPoint => this.Socket.LocalEndPoint;
+	public EndPoint? RemoteEndPoint => this.Socket.RemoteEndPoint;
 
-        public event SocketEvent<ISocket> OnConnected
-        {
-            add
-            {
-                if (!DelegateUtils.TryCombine(ref this.ConnectedEvent, value))
-                {
-                    value(this);
-                }
-            }
-            remove => DelegateUtils.TryRemove(ref this.ConnectedEvent, value);
-        }
-
-        public event SocketEvent<ISocket> OnDisconnected
-        {
-            add
-            {
-                if (!DelegateUtils.TryCombine(ref this.DisconnectedEvent, value))
-                {
-                    value(this);
-                }
-            }
-            remove => DelegateUtils.TryRemove(ref this.DisconnectedEvent, value);
-        }
-
-        internal void Prepare()
-        {
-            try
-            {
-                SocketStatus old = this.Status.Or(SocketStatus.Prepare);
-                if (old.HasFlag(SocketStatus.Prepare) //Don't prepare twice
-                    || old.HasFlag(SocketStatus.Disposing)) //Don't prepare if we are about to dispose
-                {
-                    return;
-                }
-
-                this.ReceivePipe = new Pipe(AbstractPipelineSocket.PipeOptions);
-                this.SendPipe = new Pipe(AbstractPipelineSocket.PipeOptions);
-
-                this.SendQueue = Channel.CreateUnbounded<ISendQueueTask>(new UnboundedChannelOptions
-				{
-                    SingleReader = true
-				});
-
-                AbstractPipelineSocket.PipeOptions.WriterScheduler.Schedule(o => _ = this.Receive(this.ReceivePipe!.Writer), this);
-                AbstractPipelineSocket.PipeOptions.ReaderScheduler.Schedule(o => _ = this.HandleData(this.ReceivePipe!.Reader), this);
-
-                AbstractPipelineSocket.PipeOptions.WriterScheduler.Schedule(o => _ = this.HandleSend(this.SendQueue!, this.SendPipe!.Writer), this);
-                AbstractPipelineSocket.PipeOptions.ReaderScheduler.Schedule(o => _ = this.Send(this.SendPipe!.Reader), this);
-
-                this.DoPrepare();
-
-                DelegateUtils.TryComplete(ref this.ConnectedEvent)?.Invoke(this);
-            }
-            finally
-            {
-                SocketStatus old = this.Status.Or(SocketStatus.Ready);
-                if (old.HasFlag(SocketStatus.Disposing)) //Okay, we started disposing right after... We need to close
-                {
-                    this.ClosePipe();
-                }
-            }
-        }
-
-        protected virtual void DoPrepare()
-        {
-            //NOP
-        }
-
-        private async Task Receive(PipeWriter writer)
-        {
-            try
-            {
-                await this.HandleReceive(writer).ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                this.Disconnect(e, reason: "Socket receive was faulted");
-            }
-            finally
-            {
-                this.ReceiveCompleted(writer);
-            }
-        }
-
-        protected abstract Task HandleReceive(PipeWriter writer);
-
-        private void ReceiveCompleted(PipeWriter writer)
-        {
-            try
-            {
-                //Shutdown the receive so we don't get more data which we won't read
-                this.Socket.Shutdown(SocketShutdown.Receive);
-            }
-            catch
-            {
-                //Ignored
-            }
-
-            try
-            {
-                writer.Complete();
-            }
-            catch (Exception e)
-            {
-                this.Logger?.LogError(e, "Failed to complete receive pipe writer");
-            }
-        }
-
-        private async Task HandleData(PipeReader reader)
-        {
-            try
-            {
-                while (true)
-                {
-                    if (!reader.TryRead(out ReadResult readResult))
-                    {
-                        readResult = await reader.ReadAsync().ConfigureAwait(false);
-                    }
-
-                    if (readResult.IsCanceled || readResult.IsCompleted)
-                    {
-                        break;
-                    }
-
-                    ReadOnlySequence<byte> buffer = readResult.Buffer;
-
-                    SequencePosition consumed = this.HandleData(ref buffer);
-
-                    reader.AdvanceTo(consumed, buffer.End);
-                }
-            }
-            catch (Exception ex)
-            {
-                //Failure to handle data, tear down
-                this.Disconnect(ex, "Socket data handler was faulted");
-            }
-            finally
-            {
-                this.ReadCompleted(reader);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private SequencePosition HandleData(ref ReadOnlySequence<byte> buffer)
-        {
-            PacketReader reader = new(buffer);
-
-            long consumed = reader.Consumed;
-
-            while (true)
-            {
-	            this.ProcessIncomingData(ref reader);
-
-                if (reader.End || consumed == reader.Consumed)
-	            {
-		            break;
-	            }
-
-	            consumed = reader.Consumed;
-            }
-
-            return reader.Position;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected abstract void ProcessIncomingData(ref PacketReader reader);
-
-        private void ReadCompleted(PipeReader reader)
-        {
-            try
-            {
-                reader.Complete();
-            }
-            catch (Exception e)
-            {
-	            this.Logger?.LogError(e, "Failed to complete receive pipe reader");
-            }
-
-            try
-            {
-                this.SendQueue!.Writer.Complete();
-            }
-            catch (Exception e)
-            {
-	            this.Logger?.LogError(e, "Failed to cancel send pipe reader");
-            }
-
-            SocketStatus old = this.Status.Or(SocketStatus.ReceiveClosed);
-            if (old.HasFlag(SocketStatus.SendClosed))
-            {
-                //Both receive & send has been closed
-                this.Dispose();
-            }
-        }
-
-        public ValueTask SendAsync<T>(in T data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
-        public ValueTask SendBytesAsync(ReadOnlyMemory<byte> data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
-
-        ValueTask ISocket.SendAsyncInternal(ISendQueueTask task) => this.SendAsyncInternal(task);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal async ValueTask SendAsyncInternal(ISendQueueTask task)
-        {
-            if (!this.SendQueue!.Writer.TryWrite(task))
+	public event SocketEvent<ISocket> OnConnected
+	{
+		add
+		{
+			if (!DelegateUtils.TryCombine(ref this.ConnectedEvent, value))
 			{
-                await this.SendQueue.Writer.WriteAsync(task);
+				value(this);
 			}
-        }
+		}
+		remove => DelegateUtils.TryRemove(ref this.ConnectedEvent, value);
+	}
 
-        private async Task HandleSend(Channel<ISendQueueTask> queue, PipeWriter writer)
-        {
-            try
-            {
-                while (true)
-                {
-                    if (!queue.Reader.TryRead(out ISendQueueTask? task))
-                    {
-                        FlushResult flushResult = await writer.FlushAsync().ConfigureAwait(false);
-                        if (flushResult.IsCompleted || flushResult.IsCanceled)
-                        {
-                            break;
-                        }
+	public event SocketEvent<ISocket> OnDisconnected
+	{
+		add
+		{
+			if (!DelegateUtils.TryCombine(ref this.DisconnectedEvent, value))
+			{
+				value(this);
+			}
+		}
+		remove => DelegateUtils.TryRemove(ref this.DisconnectedEvent, value);
+	}
 
-                        task = await queue.Reader.ReadAsync().ConfigureAwait(false);
-                    }
+	internal void Prepare()
+	{
+		try
+		{
+			SocketStatus old = this.Status.Or(SocketStatus.Prepare);
+			if (old.HasFlag(SocketStatus.Prepare) //Don't prepare twice
+			    || old.HasFlag(SocketStatus.Disposing)) //Don't prepare if we are about to dispose
+			{
+				return;
+			}
 
-                    this.ProcessWriter(writer, task);
-                }
-            }
-            catch (Exception e)
-            {
-                this.Disconnect(e, reason: "Socket send was faulted");
-            }
-            finally
-            {
-                this.HandleSendCompleted(queue, writer);
-            }
-        }
+			this.ReceivePipe = new Pipe(AbstractPipelineSocket.PipeOptions);
+			this.SendPipe = new Pipe(AbstractPipelineSocket.PipeOptions);
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ProcessWriter(PipeWriter writer, ISendQueueTask task)
-        {
-            //TODO: Fix pipeline stuff!
-            PacketWriter packetWriter = new(writer);
+			this.SendQueue = Channel.CreateUnbounded<ISendQueueTask>(new UnboundedChannelOptions
+			{
+				SingleReader = true
+			});
 
-            task.Write(this.Pipeline, ref packetWriter);
+			AbstractPipelineSocket.PipeOptions.WriterScheduler.Schedule(o => _ = this.Receive(this.ReceivePipe!.Writer), this);
+			AbstractPipelineSocket.PipeOptions.ReaderScheduler.Schedule(o => _ = this.HandleData(this.ReceivePipe!.Reader), this);
 
-            packetWriter.Dispose(flushWriter: false);
-        }
+			AbstractPipelineSocket.PipeOptions.WriterScheduler.Schedule(o => _ = this.HandleSend(this.SendQueue!, this.SendPipe!.Writer), this);
+			AbstractPipelineSocket.PipeOptions.ReaderScheduler.Schedule(o => _ = this.Send(this.SendPipe!.Reader), this);
 
-        private void HandleSendCompleted(Channel<ISendQueueTask> queue, PipeWriter writer)
-        {
-            try
-            {
-                //Cancel the read pipe reader, the send one is quitting, the socket is shutting down..
-                this.ReceivePipe!.Reader.CancelPendingRead();
-            }
-            catch (Exception e)
-            {
-	            this.Logger?.LogError(e, "Failed to cancel send pipe reader");
-            }
+			this.DoPrepare();
 
-            try
-            {
-                queue.Writer.Complete();
-            }
-            catch (Exception e)
-            {
-	            this.Logger?.LogError(e, "Failed to complete send queue");
-            }
+			DelegateUtils.TryComplete(ref this.ConnectedEvent)?.Invoke(this);
+		}
+		finally
+		{
+			SocketStatus old = this.Status.Or(SocketStatus.Ready);
+			if (old.HasFlag(SocketStatus.Disposing)) //Okay, we started disposing right after... We need to close
+			{
+				this.ClosePipe();
+			}
+		}
+	}
 
-            try
-            {
-                writer.Complete();
-            }
-            catch (Exception e)
-            {
-	            this.Logger?.LogError(e, "Failed to complete send pipe writer");
-            }
-        }
+	protected virtual void DoPrepare()
+	{
+		//NOP
+	}
 
-        private async Task Send(PipeReader reader)
-        {
-            try
-            {
-                using SocketReceiveAwaitableEventArgs eventArgs = new(AbstractPipelineSocket.PipeOptions.ReaderScheduler);
+	private async Task Receive(PipeWriter writer)
+	{
+		try
+		{
+			await this.HandleReceive(writer).ConfigureAwait(false);
+		}
+		catch (Exception e)
+		{
+			this.Disconnect(e, reason: "Socket receive was faulted");
+		}
+		finally
+		{
+			this.ReceiveCompleted(writer);
+		}
+	}
 
-                List<ArraySegment<byte>> bufferList = new();
+	protected abstract Task HandleReceive(PipeWriter writer);
 
-                while (true)
-                {
-                    if (!reader.TryRead(out ReadResult readResult))
-                    {
-                        readResult = await reader.ReadAsync().ConfigureAwait(false);
-                    }
+	private void ReceiveCompleted(PipeWriter writer)
+	{
+		try
+		{
+			//Shutdown the receive so we don't get more data which we won't read
+			this.Socket.Shutdown(SocketShutdown.Receive);
+		}
+		catch
+		{
+			//Ignored
+		}
 
-                    ReadOnlySequence<byte> buffer = readResult.Buffer;
-                    if (!buffer.IsSingleSegment)
-                    {
-                        foreach (ReadOnlyMemory<byte> memory in buffer)
-                        {
-                            bufferList.Add(MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment)
-                                ? segment
-                                : memory.ToArray()); //Not array backed, create heap copy :/
-                        }
+		try
+		{
+			writer.Complete();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to complete receive pipe writer");
+		}
+	}
 
-                        eventArgs.SetBuffer(null);
-                        eventArgs.BufferList = bufferList;
+	private async Task HandleData(PipeReader reader)
+	{
+		try
+		{
+			while (true)
+			{
+				if (!reader.TryRead(out ReadResult readResult))
+				{
+					readResult = await reader.ReadAsync().ConfigureAwait(false);
+				}
 
-                        //Clear, don't hold references to old memory
-                        //BufferList has its internal buffer also, where it copies the values to..
-                        bufferList.Clear();
-                    }
-                    else
-                    {
-                        eventArgs.BufferList = null;
-                        eventArgs.SetBuffer(MemoryMarshal.AsMemory(buffer.First));
-                    }
+				if (readResult.IsCanceled || readResult.IsCompleted)
+				{
+					break;
+				}
 
-                    if (this.Socket.SendAsync(eventArgs))
-                    {
-                        await eventArgs;
-                    }
+				ReadOnlySequence<byte> buffer = readResult.Buffer;
 
-                    //Try to send before exiting!
-                    if (readResult.IsCanceled || readResult.IsCompleted)
-                    {
-                        break;
-                    }
+				SequencePosition consumed = this.HandleData(ref buffer);
 
-                    switch (eventArgs.SocketError)
-                    {
-                        case SocketError.Success:
-                            break;
-                        default:
-                            this.Disconnect($"Socket send failed: {eventArgs.SocketError}");
-                            return;
-                    }
+				reader.AdvanceTo(consumed, buffer.End);
+			}
+		}
+		catch (Exception ex)
+		{
+			//Failure to handle data, tear down
+			this.Disconnect(ex, "Socket data handler was faulted");
+		}
+		finally
+		{
+			this.ReadCompleted(reader);
+		}
+	}
 
-                    reader.AdvanceTo(buffer.End);
-                }
-            }
-            catch (Exception e)
-            {
-                this.Disconnect(e, reason: "Socket send was faulted");
-            }
-            finally
-            {
-                this.SendCompleted(reader);
-            }
-        }
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private SequencePosition HandleData(ref ReadOnlySequence<byte> buffer)
+	{
+		PacketReader reader = new(buffer);
 
-        private void SendCompleted(PipeReader reader)
-        {
-            try
-            {
-                //Shutdown the send, we aren't sending anything anymore
-                this.Socket.Shutdown(SocketShutdown.Send);
-            }
-            catch
-            {
-                //Ignored
-            }
+		long consumed = reader.Consumed;
 
-            try
-            {
-                reader.Complete();
-            }
-            catch (Exception e)
-            {
-                this.Logger?.LogError(e, "Failed to complete send pipe reader");
-            }
+		while (true)
+		{
+			this.ProcessIncomingData(ref reader);
 
-            SocketStatus old = this.Status.Or(SocketStatus.SendClosed);
-            if (old.HasFlag(SocketStatus.ReceiveClosed))
-            {
-                //Both receive & send has been closed
-                this.Dispose();
-            }
-        }
+			if (reader.End || consumed == reader.Consumed)
+			{
+				break;
+			}
 
-        void ISocket.Disconnect(Exception ex) => this.Disconnect(ex);
-        internal void Disconnect(Exception ex, string? reason = default)
-        {
-            reason ??= "Socket faulted";
+			consumed = reader.Consumed;
+		}
 
-            if (!this.DisconnectInternal(reason))
-            {
-                return;
-            }
+		return reader.Position;
+	}
 
-            this.Logger?.LogError(ex, reason);
-        }
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	protected abstract void ProcessIncomingData(ref PacketReader reader);
 
-        public void Disconnect(string? reason = default) => this.DisconnectInternal(reason);
+	private void ReadCompleted(PipeReader reader)
+	{
+		try
+		{
+			reader.Complete();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to complete receive pipe reader");
+		}
 
-        private bool DisconnectInternal(string? reason = default)
-        {
-            SocketStatus old = this.Status.Or(SocketStatus.Shutdown);
-            if (old.HasFlag(SocketStatus.Shutdown))
-            {
-                return false;
-            }
+		try
+		{
+			this.SendQueue!.Writer.Complete();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to cancel send pipe reader");
+		}
 
-            try
-            {
-                //Cancel the read and let it tear down the socket
-                this.ReceivePipe?.Reader.CancelPendingRead();
-            }
-            catch (Exception e)
-            {
-	            this.Logger?.LogError(e, "Failed to cancel receive reader");
-            }
+		SocketStatus old = this.Status.Or(SocketStatus.ReceiveClosed);
+		if (old.HasFlag(SocketStatus.SendClosed))
+		{
+			//Both receive & send has been closed
+			this.Dispose();
+		}
+	}
 
-            this.OnDisconnect(reason);
+	public ValueTask SendAsync<T>(in T data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
+	public ValueTask SendBytesAsync(ReadOnlyMemory<byte> data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
 
-            return true;
-        }
+	ValueTask ISocket.SendAsyncInternal(ISendQueueTask task) => this.SendAsyncInternal(task);
 
-        public virtual void OnDisconnect(string? reason = default)
-        {
-            //NOP
-        }
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	internal async ValueTask SendAsyncInternal(ISendQueueTask task)
+	{
+		if (!this.SendQueue!.Writer.TryWrite(task))
+		{
+			await this.SendQueue.Writer.WriteAsync(task);
+		}
+	}
 
-        public void Dispose()
-        {
-            SocketStatus old = this.Status.Or(SocketStatus.Disposing | SocketStatus.Shutdown);
-            if (old.HasFlag(SocketStatus.Disposing)) //Don't dispose twice
-            {
-                return;
-            }
+	private async Task HandleSend(Channel<ISendQueueTask> queue, PipeWriter writer)
+	{
+		try
+		{
+			while (true)
+			{
+				if (!queue.Reader.TryRead(out ISendQueueTask? task))
+				{
+					FlushResult flushResult = await writer.FlushAsync().ConfigureAwait(false);
+					if (flushResult.IsCompleted || flushResult.IsCanceled)
+					{
+						break;
+					}
 
-            //Check whatever we were ready and have extra properties set up
-            if (old.HasFlag(SocketStatus.Ready))
-            {
-                this.ClosePipe();
-            }
-            else if (!old.HasFlag(SocketStatus.Prepare)) //If we have not prepared then we can just close the socket and be done
-            {
-                this.Status.Or(SocketStatus.Disposed);
+					task = await queue.Reader.ReadAsync().ConfigureAwait(false);
+				}
 
-                try
-                {
-                    this.Socket.Dispose();
-                }
-                catch (Exception e)
-                {
-	                this.Logger?.LogError(e, "Failed to dispose the socket");
-                }
-            }
-        }
+				this.ProcessWriter(writer, task);
+			}
+		}
+		catch (Exception e)
+		{
+			this.Disconnect(e, reason: "Socket send was faulted");
+		}
+		finally
+		{
+			this.HandleSendCompleted(queue, writer);
+		}
+	}
 
-        private void ClosePipe()
-        {
-            try
-            {
-                //Shutdown the receive so we don't get more data which we won't read
-                this.Socket.Shutdown(SocketShutdown.Receive);
-            }
-            catch
-            {
-                //Ignored
-            }
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private void ProcessWriter(PipeWriter writer, ISendQueueTask task)
+	{
+		//TODO: Fix pipeline stuff!
+		PacketWriter packetWriter = new(writer);
 
-            //We are forcibly tearing down the socket, end everything
-            try
-            {
-                this.ReceivePipe?.Writer.Complete();
-            }
-            catch (Exception e)
-            {
-                this.Logger?.LogError(e, "Failed to complete receive pipe writer");
-            }
+		task.Write(this.Pipeline, ref packetWriter);
 
-            try
-            {
-                this.ReceivePipe?.Reader.Complete();
-            }
-            catch (Exception e)
-            {
-                this.Logger?.LogError(e, "Failed to complete receive pipe reader");
-            }
+		packetWriter.Dispose(flushWriter: false);
+	}
 
-            try
-            {
-                DelegateUtils.TryComplete(ref this.DisconnectedEvent)?.Invoke(this);
-            }
-            catch (Exception e)
-            {
-                this.Logger?.LogError(e, "Failed to execute disconnect event");
-            }
+	private void HandleSendCompleted(Channel<ISendQueueTask> queue, PipeWriter writer)
+	{
+		try
+		{
+			//Cancel the read pipe reader, the send one is quitting, the socket is shutting down..
+			this.ReceivePipe!.Reader.CancelPendingRead();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to cancel send pipe reader");
+		}
 
-            this.OnClose();
+		try
+		{
+			queue.Writer.Complete();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to complete send queue");
+		}
 
-            this.Status.Or(SocketStatus.Disposed);
+		try
+		{
+			writer.Complete();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to complete send pipe writer");
+		}
+	}
 
-            try
-            {
-                this.SendPipe?.Writer.Complete();
-            }
-            catch (Exception e)
-            {
-	            this.Logger?.LogError(e, "Failed to complete send pipe writer");
-            }
+	private async Task Send(PipeReader reader)
+	{
+		try
+		{
+			using SocketReceiveAwaitableEventArgs eventArgs = new(AbstractPipelineSocket.PipeOptions.ReaderScheduler);
 
-            try
-            {
-                this.SendPipe?.Reader.Complete();
-            }
-            catch (Exception e)
-            {
-                this.Logger?.LogError(e, "Failed to complete send pipe reader");
-            }
+			List<ArraySegment<byte>> bufferList = new();
 
-            try
-            {
-                this.Socket.Dispose();
-            }
-            catch (Exception e)
-            {
-                this.Logger?.LogError(e, "Failed to dispose the socket");
-            }
-        }
+			while (true)
+			{
+				if (!reader.TryRead(out ReadResult readResult))
+				{
+					readResult = await reader.ReadAsync().ConfigureAwait(false);
+				}
 
-        protected virtual void OnClose()
-        {
-            //NOP
-        }
+				ReadOnlySequence<byte> buffer = readResult.Buffer;
+				if (!buffer.IsSingleSegment)
+				{
+					foreach (ReadOnlyMemory<byte> memory in buffer)
+					{
+						bufferList.Add(MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment)
+							? segment
+							: memory.ToArray()); //Not array backed, create heap copy :/
+					}
 
-        [Flags]
-        private enum SocketStatus : uint
-        {
-            None = 0,
+					eventArgs.SetBuffer(null);
+					eventArgs.BufferList = bufferList;
 
-            Prepare = 1 << 0,
-            Ready = 1 << 1,
+					//Clear, don't hold references to old memory
+					//BufferList has its internal buffer also, where it copies the values to..
+					bufferList.Clear();
+				}
+				else
+				{
+					eventArgs.BufferList = null;
+					eventArgs.SetBuffer(MemoryMarshal.AsMemory(buffer.First));
+				}
 
-            Shutdown = 1 << 2,
+				if (this.Socket.SendAsync(eventArgs))
+				{
+					await eventArgs;
+				}
 
-            ReceiveClosed = 1 << 3,
-            SendClosed = 1 << 4,
+				//Try to send before exiting!
+				if (readResult.IsCanceled || readResult.IsCompleted)
+				{
+					break;
+				}
 
-            Disposing = 1 << 5,
-            Disposed = 1 << 6
-        }
+				switch (eventArgs.SocketError)
+				{
+					case SocketError.Success:
+						break;
+					default:
+						this.Disconnect($"Socket send failed: {eventArgs.SocketError}");
+						return;
+				}
 
-        internal interface ISendQueueTask
-        {
-            public void Write(SocketPipeline pipeline, ref PacketWriter writer);
+				reader.AdvanceTo(buffer.End);
+			}
+		}
+		catch (Exception e)
+		{
+			this.Disconnect(e, reason: "Socket send was faulted");
+		}
+		finally
+		{
+			this.SendCompleted(reader);
+		}
+	}
 
-            internal static ISendQueueTask Create<T>(in T value) => new SendQueueTask<T>(value);
-            internal static ISendQueueTask Create(ReadOnlyMemory<byte> data) => new SendQueueTask<SendQueueRaw>(new SendQueueRaw(data));
-        }
+	private void SendCompleted(PipeReader reader)
+	{
+		try
+		{
+			//Shutdown the send, we aren't sending anything anymore
+			this.Socket.Shutdown(SocketShutdown.Send);
+		}
+		catch
+		{
+			//Ignored
+		}
 
-        private sealed class SendQueueTask<T> : ISendQueueTask
-        {
-            private readonly T Value;
+		try
+		{
+			reader.Complete();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to complete send pipe reader");
+		}
 
-            internal SendQueueTask(in T value)
-            {
-                this.Value = value;
-            }
+		SocketStatus old = this.Status.Or(SocketStatus.SendClosed);
+		if (old.HasFlag(SocketStatus.ReceiveClosed))
+		{
+			//Both receive & send has been closed
+			this.Dispose();
+		}
+	}
 
-            public void Write(SocketPipeline pipeline, ref PacketWriter writer)
-            {
-                if (typeof(T) == typeof(SendQueueRaw))
-                {
-                    ref SendQueueRaw raw = ref Unsafe.As<T, SendQueueRaw>(ref Unsafe.AsRef(this.Value));
+	void ISocket.Disconnect(Exception ex) => this.Disconnect(ex);
+	internal void Disconnect(Exception ex, string? reason = default)
+	{
+		reason ??= "Socket faulted";
 
-                    writer.WriteBytes(raw.Data.Span);
+		if (!this.DisconnectInternal(reason))
+		{
+			return;
+		}
 
-                    return;
-                }
+		this.Logger?.LogError(ex, reason);
+	}
 
-                pipeline.Write(ref writer, this.Value);
-            }
-        }
+	public void Disconnect(string? reason = default) => this.DisconnectInternal(reason);
 
-        private readonly struct SendQueueRaw
-        {
-            internal readonly ReadOnlyMemory<byte> Data;
+	private bool DisconnectInternal(string? reason = default)
+	{
+		SocketStatus old = this.Status.Or(SocketStatus.Shutdown);
+		if (old.HasFlag(SocketStatus.Shutdown))
+		{
+			return false;
+		}
 
-            internal SendQueueRaw(ReadOnlyMemory<byte> data)
-            {
-                this.Data = data;
-            }
-        }
-    }
+		try
+		{
+			//Cancel the read and let it tear down the socket
+			this.ReceivePipe?.Reader.CancelPendingRead();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to cancel receive reader");
+		}
+
+		this.OnDisconnect(reason);
+
+		return true;
+	}
+
+	public virtual void OnDisconnect(string? reason = default)
+	{
+		//NOP
+	}
+
+	public void Dispose()
+	{
+		SocketStatus old = this.Status.Or(SocketStatus.Disposing | SocketStatus.Shutdown);
+		if (old.HasFlag(SocketStatus.Disposing)) //Don't dispose twice
+		{
+			return;
+		}
+
+		//Check whatever we were ready and have extra properties set up
+		if (old.HasFlag(SocketStatus.Ready))
+		{
+			this.ClosePipe();
+		}
+		else if (!old.HasFlag(SocketStatus.Prepare)) //If we have not prepared then we can just close the socket and be done
+		{
+			this.Status.Or(SocketStatus.Disposed);
+
+			try
+			{
+				this.Socket.Dispose();
+			}
+			catch (Exception e)
+			{
+				this.Logger?.LogError(e, "Failed to dispose the socket");
+			}
+		}
+	}
+
+	private void ClosePipe()
+	{
+		try
+		{
+			//Shutdown the receive so we don't get more data which we won't read
+			this.Socket.Shutdown(SocketShutdown.Receive);
+		}
+		catch
+		{
+			//Ignored
+		}
+
+		//We are forcibly tearing down the socket, end everything
+		try
+		{
+			this.ReceivePipe?.Writer.Complete();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to complete receive pipe writer");
+		}
+
+		try
+		{
+			this.ReceivePipe?.Reader.Complete();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to complete receive pipe reader");
+		}
+
+		try
+		{
+			DelegateUtils.TryComplete(ref this.DisconnectedEvent)?.Invoke(this);
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to execute disconnect event");
+		}
+
+		this.OnClose();
+
+		this.Status.Or(SocketStatus.Disposed);
+
+		try
+		{
+			this.SendPipe?.Writer.Complete();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to complete send pipe writer");
+		}
+
+		try
+		{
+			this.SendPipe?.Reader.Complete();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to complete send pipe reader");
+		}
+
+		try
+		{
+			this.Socket.Dispose();
+		}
+		catch (Exception e)
+		{
+			this.Logger?.LogError(e, "Failed to dispose the socket");
+		}
+	}
+
+	protected virtual void OnClose()
+	{
+		//NOP
+	}
+
+	[Flags]
+	private enum SocketStatus : uint
+	{
+		None = 0,
+
+		Prepare = 1 << 0,
+		Ready = 1 << 1,
+
+		Shutdown = 1 << 2,
+
+		ReceiveClosed = 1 << 3,
+		SendClosed = 1 << 4,
+
+		Disposing = 1 << 5,
+		Disposed = 1 << 6
+	}
+
+	internal interface ISendQueueTask
+	{
+		public void Write(SocketPipeline pipeline, ref PacketWriter writer);
+
+		internal static ISendQueueTask Create<T>(in T value) => new SendQueueTask<T>(value);
+		internal static ISendQueueTask Create(ReadOnlyMemory<byte> data) => new SendQueueTask<SendQueueRaw>(new SendQueueRaw(data));
+	}
+
+	private sealed class SendQueueTask<T> : ISendQueueTask
+	{
+		private readonly T Value;
+
+		internal SendQueueTask(in T value)
+		{
+			this.Value = value;
+		}
+
+		public void Write(SocketPipeline pipeline, ref PacketWriter writer)
+		{
+			if (typeof(T) == typeof(SendQueueRaw))
+			{
+				ref SendQueueRaw raw = ref Unsafe.As<T, SendQueueRaw>(ref Unsafe.AsRef(this.Value));
+
+				writer.WriteBytes(raw.Data.Span);
+
+				return;
+			}
+
+			pipeline.Write(ref writer, this.Value);
+		}
+	}
+
+	private readonly struct SendQueueRaw
+	{
+		internal readonly ReadOnlyMemory<byte> Data;
+
+		internal SendQueueRaw(ReadOnlyMemory<byte> data)
+		{
+			this.Data = data;
+		}
+	}
 }

@@ -1,36 +1,29 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Dynamic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Net.Buffers;
+﻿using Net.Buffers;
 
-namespace Net.Sockets.Pipeline.Handler
+namespace Net.Sockets.Pipeline.Handler;
+
+internal sealed class TailPipelineHandlerContext : IPipelineHandlerContext, IPipelineHandler
 {
-    internal sealed class TailPipelineHandlerContext : IPipelineHandlerContext, IPipelineHandler
-    {
-	    public ISocket Socket { get; }
+	public ISocket Socket { get; }
 
-        public IPipelineHandler Handler => this;
+	public IPipelineHandler Handler => this;
 
-        public IPipelineHandlerContext Next => null;
+	public IPipelineHandlerContext Next => null;
 
-        internal TailPipelineHandlerContext(ISocket socket)
-        {
-            this.Socket = socket;
-        }
+	internal TailPipelineHandlerContext(ISocket socket)
+	{
+		this.Socket = socket;
+	}
 
-        public void ProgressReadHandler<TPacket>(ref TPacket packet)
-        {
-        }
+	public void ProgressReadHandler<TPacket>(ref TPacket packet)
+	{
+	}
 
-        public void ProgressReadHandler(ref PacketReader packet)
-        {
-        }
+	public void ProgressReadHandler(ref PacketReader packet)
+	{
+	}
 
-        public void ProgressWriteHandler<TPacket>(ref PacketWriter writer, in TPacket packet)
-        {
-        }
-    }
+	public void ProgressWriteHandler<TPacket>(ref PacketWriter writer, in TPacket packet)
+	{
+	}
 }

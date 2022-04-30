@@ -1,212 +1,208 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using Net.Buffers;
 using Net.Communication.Incoming.Consumer;
 using Net.Sockets.Pipeline.Handler;
 
-namespace Net.Communication.Manager
+namespace Net.Communication.Manager;
+
+public abstract partial class PacketManager<T>
 {
-    public abstract partial class PacketManager<T>
-    {
-		private static readonly Func<ModuleBuilder, ConstructorInfo> addIgnoreAccessChecksToAttributeToModule = Type.GetType("System.Reflection.Emit.IgnoreAccessChecksToAttributeBuilder, System.Reflection.DispatchProxy")!.GetMethod("AddToModule", new[]
+	private static readonly Func<ModuleBuilder, ConstructorInfo> addIgnoreAccessChecksToAttributeToModule = Type.GetType("System.Reflection.Emit.IgnoreAccessChecksToAttributeBuilder, System.Reflection.DispatchProxy")!.GetMethod("AddToModule", new[]
+	{
+		typeof(ModuleBuilder)
+	})!.CreateDelegate<Func<ModuleBuilder, ConstructorInfo>>();
+
+	//Key: The assembly where the by ref type is implemented
+	private static readonly ConditionalWeakTable<Assembly, GeneratedAssemblyData> generatedAssemblies = new();
+
+	private IIncomingPacketConsumer BuildByRefConsumer(Type byRefType, object parser, object handler)
+	{
+		Type consumerType = GetConsumerType(byRefType, parser.GetType(), handler.GetType());
+
+		return (IIncomingPacketConsumer)Activator.CreateInstance(
+			type: consumerType, 
+			bindingAttr: BindingFlags.Instance | BindingFlags.NonPublic, 
+			binder: null, 
+			args: new[]
+			{
+				parser,
+				handler
+			},
+			culture: null
+		)!;
+
+		Type GetConsumerType(Type type, Type parserType, Type handlerType)
 		{
-			typeof(ModuleBuilder)
-		})!.CreateDelegate<Func<ModuleBuilder, ConstructorInfo>>();
+			GeneratedAssemblyData data = GetAssemblyData(type, parserType, handlerType);
 
-		//Key: The assembly where the by ref type is implemented
-		private static readonly ConditionalWeakTable<Assembly, GeneratedAssemblyData> generatedAssemblies = new();
+			MethodInfo parseMethod = this.GetParserByRefParseMethod(parserType);
+			MethodInfo handleMethod = this.GetHandlerByRefHandleMethod(handlerType);
 
-		private IIncomingPacketConsumer BuildByRefConsumer(Type byRefType, object parser, object handler)
-        {
-            Type consumerType = GetConsumerType(byRefType, parser.GetType(), handler.GetType());
+			return data.DefineType(type, parserType, handlerType, parseMethod, handleMethod);
+		}
 
-            return (IIncomingPacketConsumer)Activator.CreateInstance(
-                type: consumerType, 
-                bindingAttr: BindingFlags.Instance | BindingFlags.NonPublic, 
-                binder: null, 
-                args: new[]
-                {
-                    parser,
-                    handler
-                },
-                culture: null
-            )!;
+		static GeneratedAssemblyData GetAssemblyData(Type byRefType, Type parserType, Type handlerType)
+		{
+			GeneratedAssemblyData data = PacketManager<T>.generatedAssemblies.GetValue(byRefType.Assembly, assembly =>
+			{
+				AssemblyName assemblyName = new($"{parserType.Assembly.GetName().Name}_PacketManager_ByRef");
+				AssemblyBuilder assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.RunAndCollect);
 
-            Type GetConsumerType(Type type, Type parserType, Type handlerType)
-            {
-	            GeneratedAssemblyData data = GetAssemblyData(type, parserType, handlerType);
+				ModuleBuilder moduleBuilder = assemblyBuilder.DefineDynamicModule("<Module>");
 
-                MethodInfo parseMethod = this.GetParserByRefParseMethod(parserType);
-	            MethodInfo handleMethod = this.GetHandlerByRefHandleMethod(handlerType);
+				ConstructorInfo attribute = PacketManager<T>.addIgnoreAccessChecksToAttributeToModule(moduleBuilder);
 
-	            return data.DefineType(type, parserType, handlerType, parseMethod, handleMethod);
-            }
+				return new GeneratedAssemblyData(assemblyBuilder, moduleBuilder, attribute);
+			});
 
-            static GeneratedAssemblyData GetAssemblyData(Type byRefType, Type parserType, Type handlerType)
-            {
-	            GeneratedAssemblyData data = PacketManager<T>.generatedAssemblies.GetValue(byRefType.Assembly, assembly =>
-	            {
-                    AssemblyName assemblyName = new($"{parserType.Assembly.GetName().Name}_PacketManager_ByRef");
-                    AssemblyBuilder assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.RunAndCollect);
+			data.AllowAccessTo(parserType.Assembly);
+			data.AllowAccessTo(handlerType.Assembly);
 
-                    ModuleBuilder moduleBuilder = assemblyBuilder.DefineDynamicModule("<Module>");
+			return data;
+		}
+	}
 
-                    ConstructorInfo attribute = PacketManager<T>.addIgnoreAccessChecksToAttributeToModule(moduleBuilder);
+	private sealed class GeneratedAssemblyData
+	{
+		private readonly AssemblyBuilder assemblyBuilder;
+		private readonly ModuleBuilder moduleBuilder;
 
-                    return new GeneratedAssemblyData(assemblyBuilder, moduleBuilder, attribute);
-	            });
+		private readonly ConstructorInfo ignoresAccessChecksToAttribute;
 
-	            data.AllowAccessTo(parserType.Assembly);
-	            data.AllowAccessTo(handlerType.Assembly);
+		private readonly HashSet<string> assemblies;
 
-                return data;
-            }
-        }
+		private readonly Dictionary<(Type, Type, Type), TypeBuilder> mappedTypes;
 
-        private sealed class GeneratedAssemblyData
-        {
-            private readonly AssemblyBuilder assemblyBuilder;
-            private readonly ModuleBuilder moduleBuilder;
+		internal GeneratedAssemblyData(AssemblyBuilder assemblyBuilder, ModuleBuilder moduleBuilder, ConstructorInfo ignoresAccessChecksToAttribute)
+		{
+			this.assemblyBuilder = assemblyBuilder;
+			this.moduleBuilder = moduleBuilder;
 
-            private readonly ConstructorInfo ignoresAccessChecksToAttribute;
+			this.ignoresAccessChecksToAttribute = ignoresAccessChecksToAttribute;
 
-            private readonly HashSet<string> assemblies;
+			this.assemblies = new HashSet<string>();
 
-            private readonly Dictionary<(Type, Type, Type), TypeBuilder> mappedTypes;
+			this.mappedTypes = new Dictionary<(Type, Type, Type), TypeBuilder>();
+		}
 
-	        internal GeneratedAssemblyData(AssemblyBuilder assemblyBuilder, ModuleBuilder moduleBuilder, ConstructorInfo ignoresAccessChecksToAttribute)
-	        {
-		        this.assemblyBuilder = assemblyBuilder;
-		        this.moduleBuilder = moduleBuilder;
+		internal void AllowAccessTo(Assembly assembly)
+		{
+			lock (this.assemblyBuilder)
+			{
+				string name = assembly.GetName().Name!;
+				if (!this.assemblies.Add(name))
+				{
+					return;
+				}
 
-                this.ignoresAccessChecksToAttribute = ignoresAccessChecksToAttribute;
+				this.assemblyBuilder.SetCustomAttribute(new CustomAttributeBuilder(this.ignoresAccessChecksToAttribute, new object[]
+				{
+					name
+				}));
+			}
+		}
 
-                this.assemblies = new HashSet<string>();
+		internal Type DefineType(Type byRefType, Type parserType, Type handlerType, MethodInfo parseMethod, MethodInfo handleMethod)
+		{
+			lock (this.assemblyBuilder)
+			{
+				if (!this.mappedTypes.TryGetValue((byRefType, parserType, handlerType), out TypeBuilder? type))
+				{
+					type = this.mappedTypes[(byRefType, parserType, handlerType)] = this.moduleBuilder.DefineType(
+						name: $"ByRefConsumer_{byRefType}_{parserType}_{handlerType}",
+						attr: TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.AutoClass | TypeAttributes.AnsiClass | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit,
+						parent: null,
+						interfaces: new[]
+						{
+							typeof(IIncomingPacketConsumer)
+						}
+					);
 
-                this.mappedTypes = new Dictionary<(Type, Type, Type), TypeBuilder>();
-	        }
+					FieldBuilder parserField = GetFieldBuilder(type, "Parser", parserType);
+					FieldBuilder handlerField = GetFieldBuilder(type, "Handler", handlerType);
 
-            internal void AllowAccessTo(Assembly assembly)
-            {
-                lock (this.assemblyBuilder)
-                {
-                    string name = assembly.GetName().Name!;
-                    if (!this.assemblies.Add(name))
-                    {
-                        return;
-                    }
+					GetConstructorBuilder(type, parserField, handlerField);
+					GetReadMethodBuilder(byRefType, type, parserField, handlerField, parseMethod, handleMethod);
 
-                    this.assemblyBuilder.SetCustomAttribute(new CustomAttributeBuilder(this.ignoresAccessChecksToAttribute, new object[]
-                    {
-						name
-                    }));
-                }
-            }
+					static FieldBuilder GetFieldBuilder(TypeBuilder typeBuilder, string fieldName, Type type)
+					{
+						FieldBuilder fieldBuilder = typeBuilder.DefineField(
+							fieldName: fieldName,
+							type: type,
+							attributes: FieldAttributes.Private | FieldAttributes.InitOnly
+						);
 
-            internal Type DefineType(Type byRefType, Type parserType, Type handlerType, MethodInfo parseMethod, MethodInfo handleMethod)
-            {
-                lock (this.assemblyBuilder)
-                {
-                    if (!this.mappedTypes.TryGetValue((byRefType, parserType, handlerType), out TypeBuilder? type))
-                    {
-                        type = this.mappedTypes[(byRefType, parserType, handlerType)] = this.moduleBuilder.DefineType(
-                            name: $"ByRefConsumer_{byRefType}_{parserType}_{handlerType}",
-                            attr: TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.AutoClass | TypeAttributes.AnsiClass | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit,
-                            parent: null,
-                            interfaces: new[]
-                            {
-                                typeof(IIncomingPacketConsumer)
-                            }
-                        );
+						return fieldBuilder;
+					}
 
-                        FieldBuilder parserField = GetFieldBuilder(type, "Parser", parserType);
-                        FieldBuilder handlerField = GetFieldBuilder(type, "Handler", handlerType);
+					static ConstructorBuilder GetConstructorBuilder(TypeBuilder typeBuilder, FieldBuilder parserField, FieldBuilder handlerField)
+					{
+						ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(
+							attributes: MethodAttributes.Private | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
+							callingConvention: CallingConventions.HasThis,
+							parameterTypes: new[]
+							{
+								parserField.FieldType,
+								handlerField.FieldType
+							}
+						);
 
-                        GetConstructorBuilder(type, parserField, handlerField);
-                        GetReadMethodBuilder(byRefType, type, parserField, handlerField, parseMethod, handleMethod);
+						ILGenerator ilGenerator = constructorBuilder.GetILGenerator();
+						ilGenerator.Emit(OpCodes.Ldarg_0);
+						ilGenerator.Emit(OpCodes.Ldarg_1);
+						ilGenerator.Emit(OpCodes.Stfld, parserField);
 
-                        static FieldBuilder GetFieldBuilder(TypeBuilder typeBuilder, string fieldName, Type type)
-                        {
-                            FieldBuilder fieldBuilder = typeBuilder.DefineField(
-                                fieldName: fieldName,
-                                type: type,
-                                attributes: FieldAttributes.Private | FieldAttributes.InitOnly
-                            );
+						ilGenerator.Emit(OpCodes.Ldarg_0);
+						ilGenerator.Emit(OpCodes.Ldarg_2);
+						ilGenerator.Emit(OpCodes.Stfld, handlerField);
 
-                            return fieldBuilder;
-                        }
+						ilGenerator.Emit(OpCodes.Ret);
 
-                        static ConstructorBuilder GetConstructorBuilder(TypeBuilder typeBuilder, FieldBuilder parserField, FieldBuilder handlerField)
-                        {
-                            ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(
-                                attributes: MethodAttributes.Private | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
-                                callingConvention: CallingConventions.HasThis,
-                                parameterTypes: new[]
-                                {
-			                        parserField.FieldType,
-			                        handlerField.FieldType
-                                }
-                            );
+						return constructorBuilder;
+					}
 
-                            ILGenerator ilGenerator = constructorBuilder.GetILGenerator();
-                            ilGenerator.Emit(OpCodes.Ldarg_0);
-                            ilGenerator.Emit(OpCodes.Ldarg_1);
-                            ilGenerator.Emit(OpCodes.Stfld, parserField);
+					static MethodBuilder GetReadMethodBuilder(Type byRefType, TypeBuilder typeBuilder, FieldBuilder parserField, FieldBuilder handlerField, MethodInfo parseMethod, MethodInfo handleMethod)
+					{
+						MethodBuilder methodBuilder = typeBuilder.DefineMethod(
+							name: "Read",
+							attributes: MethodAttributes.Public | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Virtual,
+							callingConvention: CallingConventions.HasThis,
+							returnType: null,
+							parameterTypes: new[]
+							{
+								typeof(IPipelineHandlerContext),
+								typeof(PacketReader).MakeByRefType()
+							}
+						);
 
-                            ilGenerator.Emit(OpCodes.Ldarg_0);
-                            ilGenerator.Emit(OpCodes.Ldarg_2);
-                            ilGenerator.Emit(OpCodes.Stfld, handlerField);
+						ILGenerator ilGenerator = methodBuilder.GetILGenerator();
 
-                            ilGenerator.Emit(OpCodes.Ret);
+						LocalBuilder byRefTypeLocal = ilGenerator.DeclareLocal(byRefType);
 
-                            return constructorBuilder;
-                        }
+						ilGenerator.Emit(OpCodes.Ldarg_0);
+						ilGenerator.Emit(OpCodes.Ldfld, parserField);
+						ilGenerator.Emit(OpCodes.Ldarg_2);
+						ilGenerator.Emit(OpCodes.Call, parseMethod);
+						ilGenerator.Emit(OpCodes.Stloc_0);
 
-                        static MethodBuilder GetReadMethodBuilder(Type byRefType, TypeBuilder typeBuilder, FieldBuilder parserField, FieldBuilder handlerField, MethodInfo parseMethod, MethodInfo handleMethod)
-                        {
-                            MethodBuilder methodBuilder = typeBuilder.DefineMethod(
-                                name: "Read",
-                                attributes: MethodAttributes.Public | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Virtual,
-                                callingConvention: CallingConventions.HasThis,
-                                returnType: null,
-                                parameterTypes: new[]
-                                {
-			                        typeof(IPipelineHandlerContext),
-			                        typeof(PacketReader).MakeByRefType()
-                                }
-                            );
+						ilGenerator.Emit(OpCodes.Ldarg_0);
+						ilGenerator.Emit(OpCodes.Ldfld, handlerField);
+						ilGenerator.Emit(OpCodes.Ldarg_1);
+						ilGenerator.Emit(OpCodes.Ldloca_S, byRefTypeLocal);
+						ilGenerator.Emit(OpCodes.Call, handleMethod);
 
-                            ILGenerator ilGenerator = methodBuilder.GetILGenerator();
+						ilGenerator.Emit(OpCodes.Ret);
 
-                            LocalBuilder byRefTypeLocal = ilGenerator.DeclareLocal(byRefType);
+						return methodBuilder;
+					}
+				}
 
-                            ilGenerator.Emit(OpCodes.Ldarg_0);
-                            ilGenerator.Emit(OpCodes.Ldfld, parserField);
-                            ilGenerator.Emit(OpCodes.Ldarg_2);
-                            ilGenerator.Emit(OpCodes.Call, parseMethod);
-                            ilGenerator.Emit(OpCodes.Stloc_0);
-
-                            ilGenerator.Emit(OpCodes.Ldarg_0);
-                            ilGenerator.Emit(OpCodes.Ldfld, handlerField);
-                            ilGenerator.Emit(OpCodes.Ldarg_1);
-                            ilGenerator.Emit(OpCodes.Ldloca_S, byRefTypeLocal);
-                            ilGenerator.Emit(OpCodes.Call, handleMethod);
-
-                            ilGenerator.Emit(OpCodes.Ret);
-
-                            return methodBuilder;
-                        }
-                    }
-
-                    return type.CreateType()!;
-                }
-            }
-        }
-    }
+				return type.CreateType()!;
+			}
+		}
+	}
 }

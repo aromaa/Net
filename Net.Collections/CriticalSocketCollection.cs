@@ -1,181 +1,174 @@
 ﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using Net.Collections.Extensions;
 using Net.Sockets;
 
-namespace Net.Collections
+namespace Net.Collections;
+
+/// <summary>
+/// Holds critical data that needs to be initialized and cleaned up cleanly. Ensures that add event has completed before calling the remove event.
+/// </summary>
+/// <typeparam name="TData">The data that the collection protects.</typeparam>
+public sealed class CriticalSocketCollection<TData> : AbstractSocketCollection<CriticalSocketCollection<TData>.SocketHolder>
 {
-    /// <summary>
-    /// Holds critical data that needs to be initialized and cleaned up cleanly. Ensures that add event has completed before calling the remove event.
-    /// </summary>
-    /// <typeparam name="TData">The data that the collection protects.</typeparam>
-    public sealed class CriticalSocketCollection<TData> : AbstractSocketCollection<CriticalSocketCollection<TData>.SocketHolder>
-    {
-        private readonly SocketEvent<ISocket, TData>? AddEvent;
-        private readonly SocketEvent<ISocket, TData>? RemoveEvent;
+	private readonly SocketEvent<ISocket, TData>? AddEvent;
+	private readonly SocketEvent<ISocket, TData>? RemoveEvent;
 
-        public CriticalSocketCollection(SocketEvent<ISocket, TData>? addEvent = null, SocketEvent<ISocket, TData>? removeEvent = null)
-        {
-            this.AddEvent = addEvent;
-            this.RemoveEvent = removeEvent;
-        }
+	public CriticalSocketCollection(SocketEvent<ISocket, TData>? addEvent = null, SocketEvent<ISocket, TData>? removeEvent = null)
+	{
+		this.AddEvent = addEvent;
+		this.RemoveEvent = removeEvent;
+	}
 
-        public bool TryGetSocketData(ISocket socket, out TData data)
-        {
-            if (this.Sockets.TryGetValue(socket.Id, out StrongBox<SocketHolder>? holder))
-            {
-                data = holder.Value.UserDefinedData;
+	public bool TryGetSocketData(ISocket socket, out TData data)
+	{
+		if (this.Sockets.TryGetValue(socket.Id, out StrongBox<SocketHolder>? holder))
+		{
+			data = holder.Value.UserDefinedData;
 
-                return true;
-            }
+			return true;
+		}
 
-            Unsafe.SkipInit(out data);
+		Unsafe.SkipInit(out data);
 
-            return false;
-        }
+		return false;
+	}
 
-        public bool TryAdd(ISocket socket, TData data, bool callEvent = false)
-        {
-            StrongBox<SocketHolder> holder = this.CreateSocketHolder(new SocketHolder(socket, data));
-            if (this.Sockets.TryAdd(socket.Id, holder))
-            {
-                if (callEvent)
-                {
-                    try
-                    {
-                        this.OnAdded(socket, ref holder.Value);
-                    }
-                    catch
-                    {
-                        //Well, someone fucked up, lets clean up
-                        this.TryRemove(socket);
+	public bool TryAdd(ISocket socket, TData data, bool callEvent = false)
+	{
+		StrongBox<SocketHolder> holder = this.CreateSocketHolder(new SocketHolder(socket, data));
+		if (this.Sockets.TryAdd(socket.Id, holder))
+		{
+			if (callEvent)
+			{
+				try
+				{
+					this.OnAdded(socket, ref holder.Value);
+				}
+				catch
+				{
+					//Well, someone fucked up, lets clean up
+					this.TryRemove(socket);
 
-                        throw;
-                    }
-                }
+					throw;
+				}
+			}
 
-                //Do last so we don't execute OnRemoved code while doing the add
-                socket.OnDisconnected += this.OnDisconnect;
+			//Do last so we don't execute OnRemoved code while doing the add
+			socket.OnDisconnected += this.OnDisconnect;
 
-                return true;
-            }
+			return true;
+		}
 
-            return false;
-        }
+		return false;
+	}
 
-        public bool TryRemove(ISocket socket, out TData data, bool callEvent = false)
-        {
-            if (this.Sockets.TryRemove(socket.Id, out StrongBox<SocketHolder>? handler))
-            {
-                //Cleanup first
-                socket.OnDisconnected -= this.OnDisconnect;
+	public bool TryRemove(ISocket socket, out TData data, bool callEvent = false)
+	{
+		if (this.Sockets.TryRemove(socket.Id, out StrongBox<SocketHolder>? handler))
+		{
+			//Cleanup first
+			socket.OnDisconnected -= this.OnDisconnect;
 
-                if (callEvent)
-                {
-                    this.OnRemoved(socket, ref handler.Value);
-                }
+			if (callEvent)
+			{
+				this.OnRemoved(socket, ref handler.Value);
+			}
 
-                data = handler.Value.UserDefinedData;
+			data = handler.Value.UserDefinedData;
 
-                return true;
-            }
+			return true;
+		}
 
-            Unsafe.SkipInit(out data);
+		Unsafe.SkipInit(out data);
 
-            return false;
-        }
+		return false;
+	}
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private protected override void CreateSocketHolder(ISocket socket, out SocketHolder handler) => handler = new SocketHolder(socket);
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private protected override void CreateSocketHolder(ISocket socket, out SocketHolder handler) => handler = new SocketHolder(socket);
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override void OnAdded(ISocket socket, ref SocketHolder holder)
-        {
-            if (this.AddEvent != null)
-            {
-                holder.CallAddEvent(this);
-            }
-        }
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	protected override void OnAdded(ISocket socket, ref SocketHolder holder)
+	{
+		if (this.AddEvent != null)
+		{
+			holder.CallAddEvent(this);
+		}
+	}
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override void OnRemoved(ISocket socket, ref SocketHolder holder)
-        {
-            if (this.RemoveEvent != null)
-            {
-                holder.CallRemoveEvent(this);
-            }
-        }
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	protected override void OnRemoved(ISocket socket, ref SocketHolder holder)
+	{
+		if (this.RemoveEvent != null)
+		{
+			holder.CallRemoveEvent(this);
+		}
+	}
 
-        public struct SocketHolder : ISocketHolder
-        {
-            private readonly ISocket Socket;
+	public struct SocketHolder : ISocketHolder
+	{
+		private readonly ISocket Socket;
 
-            private EventState EventStates;
+		private EventState EventStates;
 
-            internal TData UserDefinedData;
+		internal TData UserDefinedData;
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal SocketHolder(ISocket socket) : this()
-            {
-                this.Socket = socket;
-            }
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		internal SocketHolder(ISocket socket) : this()
+		{
+			this.Socket = socket;
+		}
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal SocketHolder(ISocket socket, TData userDefinedData) : this()
-            {
-                this.Socket = socket;
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		internal SocketHolder(ISocket socket, TData userDefinedData) : this()
+		{
+			this.Socket = socket;
 
-                this.EventStates = EventState.AddExecuted;
+			this.EventStates = EventState.AddExecuted;
 
-                this.UserDefinedData = userDefinedData;
-            }
+			this.UserDefinedData = userDefinedData;
+		}
 
-            ISocket ISocketHolder.Socket
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => this.Socket;
-            }
+		ISocket ISocketHolder.Socket
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => this.Socket;
+		}
 
-            internal void CallAddEvent(CriticalSocketCollection<TData> collection)
-            {
-                collection.AddEvent!(this.Socket, ref this.UserDefinedData);
+		internal void CallAddEvent(CriticalSocketCollection<TData> collection)
+		{
+			collection.AddEvent!(this.Socket, ref this.UserDefinedData);
 
-                if (collection.RemoveEvent != null)
-                {
-                    EventState old = this.EventStates.Or(EventState.AddExecuted);
-                    if (old.HasFlag(EventState.RemoveCalled))
-                    {
-                        collection.RemoveEvent!(this.Socket, ref this.UserDefinedData);
-                    }
-                }
-            }
+			if (collection.RemoveEvent != null)
+			{
+				EventState old = this.EventStates.Or(EventState.AddExecuted);
+				if (old.HasFlag(EventState.RemoveCalled))
+				{
+					collection.RemoveEvent!(this.Socket, ref this.UserDefinedData);
+				}
+			}
+		}
 
-            internal void CallRemoveEvent(CriticalSocketCollection<TData> collection)
-            {
-                if (collection.AddEvent != null)
-                {
-                    EventState old = this.EventStates.Or(EventState.RemoveCalled);
-                    if (!old.HasFlag(EventState.AddExecuted))
-                    {
-                        return;
-                    }
-                }
+		internal void CallRemoveEvent(CriticalSocketCollection<TData> collection)
+		{
+			if (collection.AddEvent != null)
+			{
+				EventState old = this.EventStates.Or(EventState.RemoveCalled);
+				if (!old.HasFlag(EventState.AddExecuted))
+				{
+					return;
+				}
+			}
 
-                collection.RemoveEvent!(this.Socket, ref this.UserDefinedData);
-            }
+			collection.RemoveEvent!(this.Socket, ref this.UserDefinedData);
+		}
 
-            [Flags]
-            private enum EventState : uint
-            {
-                AddExecuted = 1 << 0,
-                RemoveCalled = 1 << 1
-            }
-        }
-    }
+		[Flags]
+		private enum EventState : uint
+		{
+			AddExecuted = 1 << 0,
+			RemoveCalled = 1 << 1
+		}
+	}
 }

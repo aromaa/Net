@@ -1,93 +1,84 @@
-﻿using System;
-using System.Buffers;
-using System.Collections.Generic;
-using System.IO.Pipelines;
-using System.Linq;
+﻿using System.IO.Pipelines;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Net.Buffers;
 using Net.Sockets.Async;
-using Net.Sockets.Pipeline;
 
-namespace Net.Sockets.Connection.Tcp
+namespace Net.Sockets.Connection.Tcp;
+
+internal sealed class TcpSocketConnection : AbstractPipelineSocket
 {
-    internal sealed class TcpSocketConnection : AbstractPipelineSocket
-    {
-        private string? DisconnectReason;
+	private string? DisconnectReason;
 
-        internal TcpSocketConnection(Socket socket) : base(socket)
-        {
-        }
+	internal TcpSocketConnection(Socket socket) : base(socket)
+	{
+	}
 
-        protected override async Task HandleReceive(PipeWriter writer)
-        {
-            using SocketReceiveAwaitableEventArgs eventArgs = new(AbstractPipelineSocket.PipeOptions.WriterScheduler);
+	protected override async Task HandleReceive(PipeWriter writer)
+	{
+		using SocketReceiveAwaitableEventArgs eventArgs = new(AbstractPipelineSocket.PipeOptions.WriterScheduler);
 
-            while (true)
-            {
-                eventArgs.SetBuffer(writer.GetMemory());
+		while (true)
+		{
+			eventArgs.SetBuffer(writer.GetMemory());
 
-                int receivedBytes = this.Socket.ReceiveAsync(eventArgs) ? await eventArgs : eventArgs.BytesTransferred;
+			int receivedBytes = this.Socket.ReceiveAsync(eventArgs) ? await eventArgs : eventArgs.BytesTransferred;
 
-                switch (eventArgs.SocketError)
-                {
-                    case SocketError.Success:
-                    {
-                        //When receiving zero bytes it means that the socket was closed carefully
-                        if (receivedBytes == 0)
-                        {
-                            this.Disconnect();
-                            return;
-                        }
+			switch (eventArgs.SocketError)
+			{
+				case SocketError.Success:
+				{
+					//When receiving zero bytes it means that the socket was closed carefully
+					if (receivedBytes == 0)
+					{
+						this.Disconnect();
+						return;
+					}
 
-                        break;
-                    }
-                    //Not actual errors, don't print them out
-                    case SocketError.ConnectionReset:
-                        this.Disconnect();
-                        return;
-                    //Any leftovers are unexpected ones, report them
-                    default:
-                        this.Disconnect(reason: $"Receive error: {eventArgs.SocketError}");
-                        return;
-                }
+					break;
+				}
+				//Not actual errors, don't print them out
+				case SocketError.ConnectionReset:
+					this.Disconnect();
+					return;
+				//Any leftovers are unexpected ones, report them
+				default:
+					this.Disconnect(reason: $"Receive error: {eventArgs.SocketError}");
+					return;
+			}
 
-                writer.Advance(receivedBytes);
+			writer.Advance(receivedBytes);
 
-                FlushResult flushResult = await writer.FlushAsync().ConfigureAwait(false);
-                if (flushResult.IsCompleted || flushResult.IsCanceled)
-                {
-                    break;
-                }
-            }
-        }
+			FlushResult flushResult = await writer.FlushAsync().ConfigureAwait(false);
+			if (flushResult.IsCompleted || flushResult.IsCanceled)
+			{
+				break;
+			}
+		}
+	}
 
-        protected override void DoPrepare()
-        {
-	        this.Logger?.LogDebug($"{this.Socket.RemoteEndPoint} connected");
-        }
+	protected override void DoPrepare()
+	{
+		this.Logger?.LogDebug($"{this.Socket.RemoteEndPoint} connected");
+	}
 
-        public override void OnDisconnect(string? reason = default)
-        {
-            this.DisconnectReason = reason;
-        }
+	public override void OnDisconnect(string? reason = default)
+	{
+		this.DisconnectReason = reason;
+	}
 
-        protected override void OnClose()
-        {
-	        this.Logger?.LogDebug($"{this.Socket.RemoteEndPoint} disconnected for reason {this.GetDisconnectReason()}");
-        }
+	protected override void OnClose()
+	{
+		this.Logger?.LogDebug($"{this.Socket.RemoteEndPoint} disconnected for reason {this.GetDisconnectReason()}");
+	}
 
-        private string GetDisconnectReason() => this.DisconnectReason ?? "Disconnect (No reason specified)";
+	private string GetDisconnectReason() => this.DisconnectReason ?? "Disconnect (No reason specified)";
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override void ProcessIncomingData(ref PacketReader reader)
-        {
-            this.Pipeline.Read(ref reader);
-        }
-    }
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	protected override void ProcessIncomingData(ref PacketReader reader)
+	{
+		this.Pipeline.Read(ref reader);
+	}
 }

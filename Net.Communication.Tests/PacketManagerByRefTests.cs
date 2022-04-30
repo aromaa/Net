@@ -1,121 +1,112 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Net.Buffers;
 using Net.Communication.Attributes;
-using Net.Communication.Incoming.Consumer;
-using Net.Communication.Incoming.Handler;
 using Net.Communication.Manager;
 using Net.Sockets;
 using Net.Sockets.Pipeline.Handler;
 using Net.Sockets.Pipeline.Handler.Incoming;
 using Xunit;
-using Xunit.Sdk;
 
-namespace Net.Communication.Tests
+namespace Net.Communication.Tests;
+
+public class PacketManagerByRefTests
 {
-    public class PacketManagerByRefTests
-    {
-        [Fact]
-        public void GenerateByRefConsumer()
-        {
-            IncomingObjectCatcher catcher = new();
+	[Fact]
+	public void GenerateByRefConsumer()
+	{
+		IncomingObjectCatcher catcher = new();
 
-            ISocket socket = DummyIPipelineSocket.Create(socket =>
-            {
-                socket.Pipeline.AddHandlerFirst(catcher);
-                socket.Pipeline.AddHandlerFirst(new ToPacketManager());
-            });
+		ISocket socket = DummyIPipelineSocket.Create(socket =>
+		{
+			socket.Pipeline.AddHandlerFirst(catcher);
+			socket.Pipeline.AddHandlerFirst(new ToPacketManager());
+		});
 
-            socket.Pipeline.Read(5u);
+		socket.Pipeline.Read(5u);
 
-            Assert.Equal(GenerateByRefConsumerAllInOne.Bytes, catcher.Pop());
-        }
+		Assert.Equal(GenerateByRefConsumerAllInOne.Bytes, catcher.Pop());
+	}
 
-        [Fact]
-        public void GenerateByRefConsumer2()
-        {
-            IncomingObjectCatcher catcher = new();
+	[Fact]
+	public void GenerateByRefConsumer2()
+	{
+		IncomingObjectCatcher catcher = new();
 
-            ISocket socket = DummyIPipelineSocket.Create(socket =>
-            {
-                socket.Pipeline.AddHandlerFirst(catcher);
-                socket.Pipeline.AddHandlerFirst(new ToPacketManager());
-            });
+		ISocket socket = DummyIPipelineSocket.Create(socket =>
+		{
+			socket.Pipeline.AddHandlerFirst(catcher);
+			socket.Pipeline.AddHandlerFirst(new ToPacketManager());
+		});
 
-			socket.Pipeline.Read(3u);
+		socket.Pipeline.Read(3u);
 
-			//Assert.Equal(GenerateByRefParser.Bytes, catcher.Pop());
+		//Assert.Equal(GenerateByRefParser.Bytes, catcher.Pop());
+	}
+
+	private sealed class ToPacketManager : IIncomingObjectHandler<uint>
+	{
+		public void Handle(IPipelineHandlerContext context, ref uint packet)
+		{
+			PacketReader reader = default;
+
+			TestByRefManager.Instance.TryConsumePacket(context, ref reader, packet);
 		}
+	}
 
-        private sealed class ToPacketManager : IIncomingObjectHandler<uint>
-        {
-            public void Handle(IPipelineHandlerContext context, ref uint packet)
-            {
-                PacketReader reader = default;
+	internal sealed class TestByRefManager : PacketManager<uint>
+	{
+		internal static readonly TestByRefManager Instance = new(new ServiceCollection().BuildServiceProvider());
 
-                TestByRefManager.Instance.TryConsumePacket(context, ref reader, packet);
-            }
-        }
+		public TestByRefManager(IServiceProvider serviceProvider) : base(serviceProvider)
+		{
+		}
+	}
+}
 
-        internal sealed class TestByRefManager : PacketManager<uint>
-        {
-            internal static readonly TestByRefManager Instance = new(new ServiceCollection().BuildServiceProvider());
+[PacketByRefType(typeof(Span<byte>), Type = PacketByRefTypeAttribute.ConsumerType.ParserAndHandler)]
+[PacketManagerRegister(typeof(PacketManagerByRefTests.TestByRefManager))]
+[PacketParserId(5u)]
+public sealed partial class GenerateByRefConsumerAllInOne
+{
+	internal static byte[] Bytes => new byte[] { 0x5 };
 
-            public TestByRefManager(IServiceProvider serviceProvider) : base(serviceProvider)
-            {
-            }
-        }
-    }
+	public partial Span<byte> Parse(ref PacketReader reader)
+	{
+		return GenerateByRefConsumerAllInOne.Bytes;
+	}
 
-    [PacketByRefType(typeof(Span<byte>), Type = PacketByRefTypeAttribute.ConsumerType.ParserAndHandler)]
-    [PacketManagerRegister(typeof(PacketManagerByRefTests.TestByRefManager))]
-    [PacketParserId(5u)]
-    public sealed partial class GenerateByRefConsumerAllInOne
-    {
-        internal static byte[] Bytes => new byte[] { 0x5 };
+	public partial void Handle(IPipelineHandlerContext context, in Span<byte> packet)
+	{
+		byte[] array = packet.ToArray();
 
-        public partial Span<byte> Parse(ref PacketReader reader)
-        {
-            return GenerateByRefConsumerAllInOne.Bytes;
-        }
+		context.ProgressReadHandler(ref array);
+	}
+}
 
-        public partial void Handle(IPipelineHandlerContext context, in Span<byte> packet)
-        {
-            byte[] array = packet.ToArray();
-
-            context.ProgressReadHandler(ref array);
-        }
-    }
-
-    [PacketByRefType(typeof(Span<byte>), Parser = true)]
-    [PacketManagerRegister(typeof(PacketManagerByRefTests.TestByRefManager))]
-    [PacketParserId(3u)]
-    public sealed partial class GenerateByRefParser
-    {
-        internal static byte[] Bytes => new byte[] { 0x3 };
+[PacketByRefType(typeof(Span<byte>), Parser = true)]
+[PacketManagerRegister(typeof(PacketManagerByRefTests.TestByRefManager))]
+[PacketParserId(3u)]
+public sealed partial class GenerateByRefParser
+{
+	internal static byte[] Bytes => new byte[] { 0x3 };
         
-        public partial Span<byte> Parse(ref PacketReader reader)
-        {
-            return GenerateByRefParser.Bytes;
-        }
-    }
+	public partial Span<byte> Parse(ref PacketReader reader)
+	{
+		return GenerateByRefParser.Bytes;
+	}
+}
 
-    [PacketByRefType(typeof(Span<byte>), Handler = true)]
-    [PacketManagerRegister(typeof(PacketManagerByRefTests.TestByRefManager))]
-    public sealed partial class GenerateByRefHandler
-    {
-        internal static byte[] Bytes => new byte[] { 0x3 };
+[PacketByRefType(typeof(Span<byte>), Handler = true)]
+[PacketManagerRegister(typeof(PacketManagerByRefTests.TestByRefManager))]
+public sealed partial class GenerateByRefHandler
+{
+	internal static byte[] Bytes => new byte[] { 0x3 };
         
-        public partial void Handle(IPipelineHandlerContext context, in Span<byte> packet)
-        {
-            byte[] array = packet.ToArray();
+	public partial void Handle(IPipelineHandlerContext context, in Span<byte> packet)
+	{
+		byte[] array = packet.ToArray();
 
-            context.ProgressReadHandler(ref array);
-        }
-    }
+		context.ProgressReadHandler(ref array);
+	}
 }

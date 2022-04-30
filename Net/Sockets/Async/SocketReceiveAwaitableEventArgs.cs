@@ -1,22 +1,17 @@
-﻿using System;
-using System.IO.Pipelines;
-using System.Net.Sockets;
-using System.Runtime.CompilerServices;
-using System.Threading;
+﻿using System.IO.Pipelines;
 
-namespace Net.Sockets.Async
+namespace Net.Sockets.Async;
+
+internal sealed class SocketReceiveAwaitableEventArgs : SocketAwaitableEventArgs<int>
 {
-    internal sealed class SocketReceiveAwaitableEventArgs : SocketAwaitableEventArgs<int>
-    {
-        public SocketReceiveAwaitableEventArgs(PipeScheduler scheduler) : base(scheduler)
-        {
-        }
+	public SocketReceiveAwaitableEventArgs(PipeScheduler scheduler) : base(scheduler)
+	{
+	}
 
-        public override int GetResult()
-        {
-            this.ResetCallback();
+	public override int GetResult()
+	{
+		this.ResetCallback();
 
-            return this.BytesTransferred;
-        }
-    }
+		return this.BytesTransferred;
+	}
 }

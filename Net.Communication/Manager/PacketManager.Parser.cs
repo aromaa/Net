@@ -2,72 +2,70 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
 
-namespace Net.Communication.Manager
+namespace Net.Communication.Manager;
+
+public abstract partial class PacketManager<T>
 {
-    public abstract partial class PacketManager<T>
-    {
-        private readonly struct ParserData
-        {
-            public T Id { get; }
-            public int Order { get; }
+	private readonly struct ParserData
+	{
+		public T Id { get; }
+		public int Order { get; }
 
-            public Type? HandlesType { get; }
+		public Type? HandlesType { get; }
 
-            public ParserData(T id, int order, Type? handlesType)
-            {
-                this.Id = id;
-                this.Order = order;
+		public ParserData(T id, int order, Type? handlesType)
+		{
+			this.Id = id;
+			this.Order = order;
 
-                this.HandlesType = handlesType;
-            }
-        }
+			this.HandlesType = handlesType;
+		}
+	}
 
-        protected void AddParser(Type type, bool rebuildHandlers = true)
-        {
-            PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>();
-            if (registerAttribute == null)
-            {
-                throw new ArgumentException(nameof(type));
-            }
+	protected void AddParser(Type type, bool rebuildHandlers = true)
+	{
+		PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>();
+		if (registerAttribute == null)
+		{
+			throw new ArgumentException(nameof(type));
+		}
 
-            PacketByRefTypeAttribute? byRefAttribute = type.GetCustomAttribute<PacketByRefTypeAttribute>();
+		PacketByRefTypeAttribute? byRefAttribute = type.GetCustomAttribute<PacketByRefTypeAttribute>();
 
-            this.AddParser(type, registerAttribute, byRefAttribute, rebuildHandlers);
-        }
+		this.AddParser(type, registerAttribute, byRefAttribute, rebuildHandlers);
+	}
 
-        protected void AddParser(Type type, PacketManagerRegisterAttribute registerAttribute, PacketByRefTypeAttribute? byRefTypeAttribute, bool rebuildHandlers = true)
-        {
-            this.IncomingParsersType.Add(type, this.BuildParserData(type, registerAttribute, byRefTypeAttribute));
+	protected void AddParser(Type type, PacketManagerRegisterAttribute registerAttribute, PacketByRefTypeAttribute? byRefTypeAttribute, bool rebuildHandlers = true)
+	{
+		this.IncomingParsersType.Add(type, this.BuildParserData(type, registerAttribute, byRefTypeAttribute));
 
-            if (rebuildHandlers)
-            {
-                this.RebuildHandlers();
-            }
-        }
+		if (rebuildHandlers)
+		{
+			this.RebuildHandlers();
+		}
+	}
 
-        protected void AddParsers(ICollection<Type> types, bool rebuildHandlers = true)
-        {
-            foreach (Type type in types)
-            {
-                this.AddParser(type, rebuildHandlers: false);
-            }
+	protected void AddParsers(ICollection<Type> types, bool rebuildHandlers = true)
+	{
+		foreach (Type type in types)
+		{
+			this.AddParser(type, rebuildHandlers: false);
+		}
 
-            if (rebuildHandlers)
-            {
-                this.RebuildHandlers();
-            }
-        }
+		if (rebuildHandlers)
+		{
+			this.RebuildHandlers();
+		}
+	}
 
-        protected void RemoveParser(Type type, bool rebuildHandlers = true)
-        {
-            this.IncomingParsersType.Remove(type);
+	protected void RemoveParser(Type type, bool rebuildHandlers = true)
+	{
+		this.IncomingParsersType.Remove(type);
 
-            if (rebuildHandlers)
-            {
-                this.RebuildHandlers();
-            }
-        }
-    }
+		if (rebuildHandlers)
+		{
+			this.RebuildHandlers();
+		}
+	}
 }

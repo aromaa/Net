@@ -1,7 +1,6 @@
-﻿namespace Net.Metadata
+﻿namespace Net.Metadata;
+
+public interface IMetadatable
 {
-    public interface IMetadatable
-    {
-        public MetadataMap Metadata { get; }
-    }
+	public MetadataMap Metadata { get; }
 }

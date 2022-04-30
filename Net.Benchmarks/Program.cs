@@ -1,14 +1,12 @@
 ﻿using BenchmarkDotNet.Running;
 using Net.Benchmarks.Sockets.Pipeline;
-using Net.Benchmarks.Sockets.Pipeline.Handler;
 
-namespace Net.Benchmarks
+namespace Net.Benchmarks;
+
+internal static class Program
 {
-    internal static class Program
-    {
-        private static void Main(string[] args)
-        {
-            BenchmarkRunner.Run<SocketPipelineBenchmarks>();
-        }
-    }
+	private static void Main(string[] args)
+	{
+		BenchmarkRunner.Run<SocketPipelineBenchmarks>();
+	}
 }

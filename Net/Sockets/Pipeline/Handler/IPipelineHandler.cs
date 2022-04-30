@@ -1,6 +1,5 @@
-﻿namespace Net.Sockets.Pipeline.Handler
+﻿namespace Net.Sockets.Pipeline.Handler;
+
+public interface IPipelineHandler
 {
-    public interface IPipelineHandler
-    {
-    }
 }

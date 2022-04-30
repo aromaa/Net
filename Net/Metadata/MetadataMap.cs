@@ -1,43 +1,42 @@
 ﻿using System.Collections.Immutable;
 using System.Threading;
 
-namespace Net.Metadata
+namespace Net.Metadata;
+
+public sealed class MetadataMap
 {
-    public sealed class MetadataMap
-    {
-        //Internally this uses binary tree
-        private ImmutableDictionary<MetadataKey, object?> Metadata;
+	//Internally this uses binary tree
+	private ImmutableDictionary<MetadataKey, object?> Metadata;
 
-        public MetadataMap()
-        {
-            this.Metadata = ImmutableDictionary<MetadataKey, object?>.Empty;
-        }
+	public MetadataMap()
+	{
+		this.Metadata = ImmutableDictionary<MetadataKey, object?>.Empty;
+	}
 
-        public void Set<T>(MetadataKey<T> key, T value)
-        {
-            do
-            {
-                ImmutableDictionary<MetadataKey, object?> metadata = this.Metadata;
+	public void Set<T>(MetadataKey<T> key, T value)
+	{
+		do
+		{
+			ImmutableDictionary<MetadataKey, object?> metadata = this.Metadata;
 
-                if (Interlocked.CompareExchange(ref this.Metadata, metadata.SetItem(key, value), metadata) == metadata)
-                {
-                    break;
-                }
-            } while (true);
-        }
+			if (Interlocked.CompareExchange(ref this.Metadata, metadata.SetItem(key, value), metadata) == metadata)
+			{
+				break;
+			}
+		} while (true);
+	}
 
-        public bool TryGetValue<T>(MetadataKey<T> key, out T value)
-        {
-            if (this.Metadata.TryGetValue(key, out object? outValue))
-            {
-                value = (T)outValue!;
+	public bool TryGetValue<T>(MetadataKey<T> key, out T value)
+	{
+		if (this.Metadata.TryGetValue(key, out object? outValue))
+		{
+			value = (T)outValue!;
 
-                return true;
-            }
+			return true;
+		}
 
-            value = default!;
+		value = default!;
 
-            return false;
-        }
-    }
+		return false;
+	}
 }

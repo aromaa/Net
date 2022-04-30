@@ -1,11 +1,7 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using System.Text;
+﻿namespace Net.Buffers;
 
-namespace Net.Buffers
+public ref partial struct PacketWriter
 {
-    public ref partial struct PacketWriter
-    {
 #if NET5_0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteFixedUInt16Utf8(Utf8Span value)
@@ -35,5 +31,4 @@ namespace Net.Buffers
             this.WriteByte(delimiter);
         }
 #endif
-    }
 }

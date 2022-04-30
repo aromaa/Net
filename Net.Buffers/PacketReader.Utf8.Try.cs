@@ -1,15 +1,7 @@
-﻿using System;
-using System.Buffers;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace Net.Buffers;
 
-namespace Net.Buffers
+public ref partial struct PacketReader
 {
-    public ref partial struct PacketReader
-    {
 #if NET5_0
         //Without limit
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -149,5 +141,4 @@ namespace Net.Buffers
             return true;
         }
 #endif
-    }
 }

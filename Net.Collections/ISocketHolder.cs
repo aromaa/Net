@@ -1,17 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Net.Sockets;
+﻿using Net.Sockets;
 
-namespace Net.Collections
+namespace Net.Collections;
+
+/// <summary>
+/// Internal implementation detail
+/// </summary>
+public interface ISocketHolder
 {
-    /// <summary>
-    /// Internal implementation detail
-    /// </summary>
-    public interface ISocketHolder
-    {
-        internal ISocket Socket { get; }
-    }
+	internal ISocket Socket { get; }
 }

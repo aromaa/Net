@@ -2,70 +2,68 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
 
-namespace Net.Communication.Manager
+namespace Net.Communication.Manager;
+
+public abstract partial class PacketManager<T>
 {
-    public abstract partial class PacketManager<T>
-    {
-        private readonly struct ComposerData
-        {
-            public T Id { get; }
-            public int Order { get; }
+	private readonly struct ComposerData
+	{
+		public T Id { get; }
+		public int Order { get; }
 
-            public Type? HandlesType { get; }
+		public Type? HandlesType { get; }
 
-            public ComposerData(T id, int order, Type? handlesType)
-            {
-                this.Id = id;
-                this.Order = order;
+		public ComposerData(T id, int order, Type? handlesType)
+		{
+			this.Id = id;
+			this.Order = order;
 
-                this.HandlesType = handlesType;
-            }
-        }
+			this.HandlesType = handlesType;
+		}
+	}
 
-        protected void AddComposer(Type type, bool rebuildHandlers = true)
-        {
-            PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>();
-            if (registerAttribute == null)
-            {
-                throw new ArgumentException(nameof(type));
-            }
+	protected void AddComposer(Type type, bool rebuildHandlers = true)
+	{
+		PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>();
+		if (registerAttribute == null)
+		{
+			throw new ArgumentException(nameof(type));
+		}
 
-            this.AddComposer(type, registerAttribute, rebuildHandlers);
-        }
+		this.AddComposer(type, registerAttribute, rebuildHandlers);
+	}
 
-        protected void AddComposer(Type type, PacketManagerRegisterAttribute registerAttribute, bool rebuildHandlers = true)
-        {
-            this.OutgoingComposersType.Add(type, this.BuildComposerData(type, registerAttribute));
+	protected void AddComposer(Type type, PacketManagerRegisterAttribute registerAttribute, bool rebuildHandlers = true)
+	{
+		this.OutgoingComposersType.Add(type, this.BuildComposerData(type, registerAttribute));
 
-            if (rebuildHandlers)
-            {
-                this.RebuildHandlers();
-            }
-        }
+		if (rebuildHandlers)
+		{
+			this.RebuildHandlers();
+		}
+	}
 
-        protected void AddComposers(ICollection<Type> types, bool rebuildHandlers = true)
-        {
-            foreach (Type type in types)
-            {
-                this.AddComposer(type, rebuildHandlers: false);
-            }
+	protected void AddComposers(ICollection<Type> types, bool rebuildHandlers = true)
+	{
+		foreach (Type type in types)
+		{
+			this.AddComposer(type, rebuildHandlers: false);
+		}
 
-            if (rebuildHandlers)
-            {
-                this.RebuildHandlers();
-            }
-        }
+		if (rebuildHandlers)
+		{
+			this.RebuildHandlers();
+		}
+	}
 
-        protected void RemoveComposer(Type type, bool rebuildHandlers = true)
-        {
-            this.OutgoingComposersType.Remove(type);
+	protected void RemoveComposer(Type type, bool rebuildHandlers = true)
+	{
+		this.OutgoingComposersType.Remove(type);
 
-            if (rebuildHandlers)
-            {
-                this.RebuildHandlers();
-            }
-        }
-    }
+		if (rebuildHandlers)
+		{
+			this.RebuildHandlers();
+		}
+	}
 }
