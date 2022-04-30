@@ -48,7 +48,7 @@ namespace Net.Communication.Tests
             return socket;
         }
 
-        public Task SendAsync<T>(in T data) => throw new NotImplementedException();
+        public ValueTask SendAsync<T>(in T data) => throw new NotImplementedException();
 
         public void Disconnect(Exception exception)
         {
@@ -64,7 +64,7 @@ namespace Net.Communication.Tests
         {
         }
 
-        public Task SendBytesAsync(ReadOnlyMemory<byte> data)
+        public ValueTask SendBytesAsync(ReadOnlyMemory<byte> data)
         {
             throw new NotImplementedException();
         }

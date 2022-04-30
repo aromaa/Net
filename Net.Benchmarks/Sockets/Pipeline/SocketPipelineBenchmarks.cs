@@ -130,12 +130,12 @@ namespace Net.Benchmarks.Sockets.Pipeline
             {
             }
 
-            public Task SendAsync<T>(in T data)
+            public ValueTask SendAsync<T>(in T data)
             {
                 throw new NotImplementedException();
             }
 
-            public Task SendBytesAsync(ReadOnlyMemory<byte> data)
+            public ValueTask SendBytesAsync(ReadOnlyMemory<byte> data)
             {
                 throw new NotImplementedException();
             }

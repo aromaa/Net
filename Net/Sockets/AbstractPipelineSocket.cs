@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.Logging;
@@ -25,9 +26,9 @@ namespace Net.Sockets
             useSynchronizationContext: false
         );
 
-        protected Socket Socket { get; }
-
         public ILogger? Logger { protected get; init; }
+
+        protected Socket Socket { get; }
 
         public SocketId Id { get; }
 
@@ -39,9 +40,7 @@ namespace Net.Sockets
         private Pipe? ReceivePipe;
         private Pipe? SendPipe;
 
-        //I actually have no idea what I'm doing.. lmao
-        //This seems like nice option to do this and control write queue
-        private BufferBlock<ISendQueueTask>? SendQueue;
+        private Channel<ISendQueueTask>? SendQueue;
 
         private event SocketEvent<ISocket>? ConnectedEvent;
         private event SocketEvent<ISocket>? DisconnectedEvent;
@@ -99,7 +98,10 @@ namespace Net.Sockets
                 this.ReceivePipe = new Pipe(AbstractPipelineSocket.PipeOptions);
                 this.SendPipe = new Pipe(AbstractPipelineSocket.PipeOptions);
 
-                this.SendQueue = new BufferBlock<ISendQueueTask>();
+                this.SendQueue = Channel.CreateUnbounded<ISendQueueTask>(new UnboundedChannelOptions
+				{
+                    SingleReader = true
+				});
 
                 AbstractPipelineSocket.PipeOptions.WriterScheduler.Schedule(o => _ = this.Receive(this.ReceivePipe!.Writer), this);
                 AbstractPipelineSocket.PipeOptions.ReaderScheduler.Schedule(o => _ = this.HandleData(this.ReceivePipe!.Reader), this);
@@ -238,8 +240,7 @@ namespace Net.Sockets
 
             try
             {
-                //Complete the send queue, allows all the left over data to be sent to the client
-                this.SendQueue!.Complete();
+                this.SendQueue!.Writer.Complete();
             }
             catch (Exception e)
             {
@@ -254,24 +255,27 @@ namespace Net.Sockets
             }
         }
 
-        public Task SendAsync<T>(in T data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
-        public Task SendBytesAsync(ReadOnlyMemory<byte> data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
+        public ValueTask SendAsync<T>(in T data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
+        public ValueTask SendBytesAsync(ReadOnlyMemory<byte> data) => this.SendAsyncInternal(ISendQueueTask.Create(data));
 
-        Task ISocket.SendAsyncInternal(ISendQueueTask task) => this.SendAsyncInternal(task);
+        ValueTask ISocket.SendAsyncInternal(ISendQueueTask task) => this.SendAsyncInternal(task);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal async Task SendAsyncInternal(ISendQueueTask task)
+        internal async ValueTask SendAsyncInternal(ISendQueueTask task)
         {
-            await this.SendQueue!.SendAsync(task);
+            if (!this.SendQueue!.Writer.TryWrite(task))
+			{
+                await this.SendQueue.Writer.WriteAsync(task);
+			}
         }
 
-        private async Task HandleSend(BufferBlock<ISendQueueTask> queue, PipeWriter writer)
+        private async Task HandleSend(Channel<ISendQueueTask> queue, PipeWriter writer)
         {
             try
             {
                 while (true)
                 {
-                    if (!queue.TryReceive(out ISendQueueTask? task))
+                    if (!queue.Reader.TryRead(out ISendQueueTask? task))
                     {
                         FlushResult flushResult = await writer.FlushAsync().ConfigureAwait(false);
                         if (flushResult.IsCompleted || flushResult.IsCanceled)
@@ -279,13 +283,7 @@ namespace Net.Sockets
                             break;
                         }
 
-                        bool available = await queue.OutputAvailableAsync();
-                        if (available)
-                        {
-                            continue;
-                        }
-
-                        break;
+                        task = await queue.Reader.ReadAsync().ConfigureAwait(false);
                     }
 
                     this.ProcessWriter(writer, task);
@@ -312,7 +310,7 @@ namespace Net.Sockets
             packetWriter.Dispose(flushWriter: false);
         }
 
-        private void HandleSendCompleted(BufferBlock<ISendQueueTask> queue, PipeWriter writer)
+        private void HandleSendCompleted(Channel<ISendQueueTask> queue, PipeWriter writer)
         {
             try
             {
@@ -326,7 +324,7 @@ namespace Net.Sockets
 
             try
             {
-                queue.Complete();
+                queue.Writer.Complete();
             }
             catch (Exception e)
             {

@@ -142,9 +142,9 @@ namespace Net.Tests.Sockets.Pipeline
                 this.Pipeline = new SocketPipeline(this);
             }
 
-            public Task SendAsync<TPacket>(in TPacket data) => throw new NotImplementedException();
+            public ValueTask SendAsync<TPacket>(in TPacket data) => throw new NotImplementedException();
 
-	        public Task SendBytesAsync(ReadOnlyMemory<byte> data) => throw new NotImplementedException();
+	        public ValueTask SendBytesAsync(ReadOnlyMemory<byte> data) => throw new NotImplementedException();
 
 	        public void Disconnect(Exception exception)
 	        {
