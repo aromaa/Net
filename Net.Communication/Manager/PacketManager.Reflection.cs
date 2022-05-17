@@ -148,6 +148,14 @@ public abstract partial class PacketManager<T>
 			{
 				foreach (Type handles in implementedInterface.GetGenericArguments())
 				{
+					if (handles.IsGenericTypeParameter)
+					{
+						foreach (Type constraint in handles.GetGenericParameterConstraints())
+						{
+							return constraint;
+						}
+					}
+
 					return handles;
 				}
 			}

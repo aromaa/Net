@@ -143,8 +143,15 @@ public abstract partial class PacketManager<T> where T : notnull
 		//Handlers first so we can construct consumers from them when going thru parsers
 		Dictionary<Type, IIncomingPacketHandler> handlers = new();
 		Dictionary<Type, object> byRefHandlers = new(); //Special case
+		Dictionary<Type, HandlerData> genericHandlers = new();
 		foreach ((Type type, HandlerData data) in this.IncomingHandlersType.OrderByDescending(kvp => kvp.Value.Order))
 		{
+			if (type.ContainsGenericParameters)
+			{
+				genericHandlers.Add(type, data);
+				continue;
+			}
+
 			object? handler = ActivatorUtilities.CreateInstance(this.ServiceProvider, type);
 			if (handler is not IIncomingPacketHandler packetHandler)
 			{
@@ -193,7 +200,16 @@ public abstract partial class PacketManager<T> where T : notnull
 				continue;
 			}
 
-			handlers.TryGetValue(data.HandlesType, out IIncomingPacketHandler? handler);
+			if (!handlers.TryGetValue(data.HandlesType, out IIncomingPacketHandler? handler))
+			{
+				foreach ((Type genericHandlerType, HandlerData genericHandlerData) in genericHandlers)
+				{
+					if (genericHandlerData.HandlesType is { } handlesType && handlesType.IsAssignableFrom(data.HandlesType))
+					{
+						handler = (IIncomingPacketHandler)ActivatorUtilities.CreateInstance(this.ServiceProvider, genericHandlerType.MakeGenericType(data.HandlesType));
+					}
+				}
+			}
 
 			consumers.TryAdd(data.Id, this.BuildConsumer(data.HandlesType, packetParser, handler));
 		}
