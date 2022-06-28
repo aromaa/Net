@@ -259,11 +259,24 @@ internal abstract class AbstractPipelineSocket : ISocket
 	ValueTask ISocket.SendAsyncInternal(ISendQueueTask task) => this.SendAsyncInternal(task);
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal async ValueTask SendAsyncInternal(ISendQueueTask task)
+	internal ValueTask SendAsyncInternal(ISendQueueTask task)
 	{
-		if (!this.SendQueue!.Writer.TryWrite(task))
+		if (this.SendQueue!.Writer.TryWrite(task))
 		{
-			await this.SendQueue.Writer.WriteAsync(task);
+			return ValueTask.CompletedTask;
+		}
+
+		return SendAsyncInternalSlow(task);
+	}
+
+	private async ValueTask SendAsyncInternalSlow(ISendQueueTask task)
+	{
+		while (await this.SendQueue!.Writer.WaitToWriteAsync().ConfigureAwait(false))
+		{
+			if (this.SendQueue.Writer.TryWrite(task))
+			{
+				return;
+			}
 		}
 	}
 
@@ -281,7 +294,12 @@ internal abstract class AbstractPipelineSocket : ISocket
 						break;
 					}
 
-					task = await queue.Reader.ReadAsync().ConfigureAwait(false);
+					if (!await queue.Reader.WaitToReadAsync().ConfigureAwait(false))
+					{
+						break;
+					}
+
+					continue;
 				}
 
 				this.ProcessWriter(writer, task);
@@ -322,7 +340,7 @@ internal abstract class AbstractPipelineSocket : ISocket
 
 		try
 		{
-			queue.Writer.Complete();
+			queue.Writer.TryComplete();
 		}
 		catch (Exception e)
 		{
@@ -440,6 +458,7 @@ internal abstract class AbstractPipelineSocket : ISocket
 	}
 
 	void ISocket.Disconnect(Exception ex) => this.Disconnect(ex);
+	
 	internal void Disconnect(Exception ex, string? reason = default)
 	{
 		reason ??= "Socket faulted";
@@ -469,7 +488,7 @@ internal abstract class AbstractPipelineSocket : ISocket
 		}
 		catch (Exception e)
 		{
-			this.Logger?.LogError(e, "Failed to cancel receive reader");
+			this.Logger?.LogError(e, "Failed to cancel receive writer");
 		}
 
 		this.OnDisconnect(reason);

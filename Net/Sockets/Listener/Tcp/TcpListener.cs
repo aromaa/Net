@@ -70,7 +70,7 @@ internal sealed class TcpListener : IListener
 					case SocketError.Success:
 						break;
 					default:
-						socket?.Dispose(); //Not sure how to trigger this so this stuff is here to be safe
+						socket.Dispose(); //Not sure how to trigger this so this stuff is here to be safe
 						continue;
 				}
 
