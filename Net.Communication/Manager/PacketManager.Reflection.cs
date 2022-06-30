@@ -18,10 +18,25 @@ public abstract partial class PacketManager<T>
 
 		foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
 		{
-			foreach(Type type in assembly.GetTypes())
+			bool skip = false;
+			foreach (AssemblyMetadataAttribute metadataAttribute in assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
+			{
+				if (metadataAttribute.Key is ".NETFrameworkAssembly")
+				{
+					skip = true;
+					break;
+				}
+			}
+
+			if (skip)
+			{
+				continue;
+			}
+			
+			foreach (Type type in assembly.GetTypes())
 			{
 				PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>();
-				if (registerAttribute == null)
+				if (registerAttribute is null)
 				{
 					continue;
 				}
