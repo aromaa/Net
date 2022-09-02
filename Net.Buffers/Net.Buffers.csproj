@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<TargetFramework>net6.0</TargetFramework>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -6,7 +6,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="System.IO.Pipelines" Version="4.7.2" />
 		<PackageReference Include="System.Utf8String.Experimental" Version="5.0.0-preview.8.20351.9" />
+		<PackageReference Include="System.IO.Pipelines" Version="6.0.3" />
 	</ItemGroup>
 </Project>
