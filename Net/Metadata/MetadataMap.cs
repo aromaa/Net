@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Threading;
 
 namespace Net.Metadata;
 
@@ -23,7 +22,8 @@ public sealed class MetadataMap
 			{
 				break;
 			}
-		} while (true);
+		}
+		while (true);
 	}
 
 	public bool TryGetValue<T>(MetadataKey<T> key, out T value)

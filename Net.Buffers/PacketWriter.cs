@@ -1,5 +1,4 @@
-﻿using System;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Buffers.Binary;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
@@ -37,7 +36,7 @@ public ref partial struct PacketWriter
 		this.Buffer = buffer;
 	}
 
-	public int Length => this.Pointer;
+	public readonly int Length => this.Pointer;
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void WriteByte(byte value) => this.GetBuffer(1)[0] = value;
@@ -138,7 +137,7 @@ public ref partial struct PacketWriter
 
 			this.SpanPointer += amount;
 		}
-		else if (!(this.Writer is null))
+		else if (this.Writer is not null)
 		{
 			this.Writer.Advance(this.SpanPointer);
 
@@ -159,7 +158,7 @@ public ref partial struct PacketWriter
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public void CheckReleased()
+	public readonly void CheckReleased()
 	{
 		if (this.SpanPointer < 0)
 		{
@@ -193,7 +192,11 @@ public ref partial struct PacketWriter
 			{
 				if (this.Writer is PipeWriter writer)
 				{
-					writer.FlushAsync().GetAwaiter().GetResult();
+					ValueTask<FlushResult> result = writer.FlushAsync();
+					if (!result.IsCompletedSuccessfully)
+					{
+						result.AsTask().GetAwaiter().GetResult();
+					}
 				}
 			}
 		}

@@ -1,31 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reflection;
+﻿using System.Reflection;
 using Net.Communication.Attributes;
 
 namespace Net.Communication.Manager;
 
 public abstract partial class PacketManager<T>
 {
-	private readonly struct ConsumerData
+	private readonly struct ConsumerData(T id, int order)
 	{
-		public T Id { get; }
-		public int Order { get; }
-
-		public ConsumerData(T id, int order)
-		{
-			this.Id = id;
-			this.Order = order;
-		}
+		public T Id { get; } = id;
+		public int Order { get; } = order;
 	}
 
 	protected void AddConsumer(Type type, bool rebuildHandlers = true)
 	{
-		PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>();
-		if (registerAttribute == null)
-		{
-			throw new ArgumentException(nameof(type));
-		}
+		PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>() ?? throw new ArgumentException(null, nameof(type));
 
 		this.AddConsumer(type, registerAttribute, rebuildHandlers);
 	}

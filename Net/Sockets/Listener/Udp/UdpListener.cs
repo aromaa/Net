@@ -1,11 +1,9 @@
-﻿using System;
-using System.Buffers;
+﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Net.Buffers;
 using Net.Buffers.Extensions;
 using Net.Sockets.Async;
@@ -56,7 +54,7 @@ internal sealed class UdpListener : AbstractPipelineSocket, IListener
 
 			eventArgs.SetBuffer(buffer.Slice(start: this.SourceHeaderLength));
 
-			read:
+		read:
 			int receivedBytes = this.Socket.ReceiveFromAsync(eventArgs) ? await eventArgs : eventArgs.BytesTransferred;
 
 			switch (eventArgs.SocketError)
@@ -98,7 +96,7 @@ internal sealed class UdpListener : AbstractPipelineSocket, IListener
 	protected override void ProcessIncomingData(ref PacketReader reader)
 	{
 		ReadOnlySequence<byte> sourceAddress = reader.ReadBytes(this.SourceAddressLength);
-            
+
 		ReadU(ref reader.GetReaderRef(), out ushort port);
 		ReadU(ref reader.GetReaderRef(), out ushort length);
 

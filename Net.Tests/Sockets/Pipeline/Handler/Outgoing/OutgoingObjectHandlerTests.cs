@@ -1,5 +1,4 @@
-﻿using System;
-using Net.Buffers;
+﻿using Net.Buffers;
 using Net.Sockets;
 using Net.Sockets.Pipeline.Handler;
 using Net.Sockets.Pipeline.Handler.Outgoing;
@@ -9,7 +8,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Outgoing;
 
 public class OutgoingObjectHandlerTests
 {
-	private DummyContext Context = new();
+	private readonly DummyContext Context = new();
 
 	[Fact]
 	public void TestHandlerReference()
@@ -65,7 +64,7 @@ public class OutgoingObjectHandlerTests
 		PacketWriter writer = default;
 
 		HandlerGeneric handler = new();
-		((IOutgoingObjectHandler)handler).Handle(this.Context, ref writer, (object)null);
+		((IOutgoingObjectHandler)handler).Handle(this.Context, ref writer, (object?)null);
 
 		Assert.False(handler.Executed);
 		Assert.True(this.Context.ProgressWriteHandlerCalled);

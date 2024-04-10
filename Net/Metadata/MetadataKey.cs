@@ -1,6 +1,4 @@
-﻿using System.Threading;
-
-namespace Net.Metadata;
+﻿namespace Net.Metadata;
 
 public abstract class MetadataKey
 {
@@ -22,7 +20,8 @@ public abstract class MetadataKey
 
 public sealed class MetadataKey<T> : MetadataKey
 {
-	private MetadataKey(int id, string name) : base(id, name)
+	private MetadataKey(int id, string name)
+		: base(id, name)
 	{
 	}
 

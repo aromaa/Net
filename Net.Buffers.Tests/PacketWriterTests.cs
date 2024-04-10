@@ -1,9 +1,5 @@
-﻿using System;
-using System.Buffers;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.Buffers;
 using System.IO.Pipelines;
-using System.Linq;
 using Xunit;
 
 namespace Net.Buffers.Tests;
@@ -57,7 +53,7 @@ public class PacketWriterTests
 
 			Assert.Equal(value, buffer);
 		}
-		catch when(exception)
+		catch when (exception)
 		{
 		}
 	}
@@ -76,7 +72,7 @@ public class PacketWriterTests
 	}
 
 	private PacketWriter GetWriterWithFixedBuffer(int amount, out byte[] buffer)
-	{ 
+	{
 		buffer = new byte[amount];
 
 		MemoryStream memoryStream = new(buffer);
@@ -126,7 +122,7 @@ public class PacketWriterTests
 
 	private sealed class FixedIBufferWriterSlices : IBufferWriter<byte>
 	{
-		private IList<Memory<byte>> Buffer;
+		private readonly IList<Memory<byte>> Buffer;
 		private int Index;
 
 		internal FixedIBufferWriterSlices(IList<Memory<byte>> buffer)

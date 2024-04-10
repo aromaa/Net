@@ -1,7 +1,6 @@
 ﻿using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Net.Buffers;
 using Net.Sockets.Async;
@@ -12,7 +11,8 @@ internal sealed class TcpSocketConnection : AbstractPipelineSocket
 {
 	private string? DisconnectReason;
 
-	internal TcpSocketConnection(Socket socket) : base(socket)
+	internal TcpSocketConnection(Socket socket)
+		: base(socket)
 	{
 	}
 
@@ -39,6 +39,7 @@ internal sealed class TcpSocketConnection : AbstractPipelineSocket
 
 					break;
 				}
+
 				//Not actual errors, don't print them out
 				case SocketError.ConnectionReset:
 					this.Disconnect();

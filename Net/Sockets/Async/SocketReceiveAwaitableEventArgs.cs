@@ -2,12 +2,8 @@
 
 namespace Net.Sockets.Async;
 
-internal sealed class SocketReceiveAwaitableEventArgs : SocketAwaitableEventArgs<int>
+internal sealed class SocketReceiveAwaitableEventArgs(PipeScheduler scheduler) : SocketAwaitableEventArgs<int>(scheduler)
 {
-	public SocketReceiveAwaitableEventArgs(PipeScheduler scheduler) : base(scheduler)
-	{
-	}
-
 	public override int GetResult()
 	{
 		this.ResetCallback();

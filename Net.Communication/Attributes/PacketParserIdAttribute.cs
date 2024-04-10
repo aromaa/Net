@@ -1,13 +1,7 @@
-﻿using System;
+﻿namespace Net.Communication.Attributes;
 
-namespace Net.Communication.Attributes;
-
-public sealed class PacketParserIdAttribute : Attribute
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class PacketParserIdAttribute(object id) : Attribute
 {
-	public object Id { get; }
-
-	public PacketParserIdAttribute(object id)
-	{
-		this.Id = id;
-	}
+	public object Id { get; } = id;
 }

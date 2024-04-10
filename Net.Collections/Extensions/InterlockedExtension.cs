@@ -1,13 +1,12 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using System.Threading;
+﻿using System.Runtime.CompilerServices;
 
 namespace Net.Collections.Extensions;
 
 internal static class InterlockedExtension
 {
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal static T Or<T>(ref this T @this, T value) where T: struct, Enum
+	internal static T Or<T>(ref this T @this, T value)
+		where T : struct, Enum
 	{
 		if (Unsafe.SizeOf<T>() == 4)
 		{

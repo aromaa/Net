@@ -12,11 +12,11 @@ public interface IOutgoingObjectHandler<T> : IOutgoingObjectHandler
 	{
 		if (typeof(TPacket) == typeof(T))
 		{
-			this.Handle(context, ref writer, in Unsafe.As<TPacket, T>(ref Unsafe.AsRef(packet)));
+			this.Handle(context, ref writer, in Unsafe.As<TPacket, T>(ref Unsafe.AsRef(in packet)));
 
 			return;
 		}
-            
+
 		context.ProgressWriteHandler(ref writer, packet);
 	}
 }

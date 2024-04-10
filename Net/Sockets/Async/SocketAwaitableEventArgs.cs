@@ -1,24 +1,17 @@
-﻿using System;
-using System.IO.Pipelines;
+﻿using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using System.Threading;
 
 namespace Net.Sockets.Async;
 
-internal abstract class SocketAwaitableEventArgs<T> : SocketAsyncEventArgs, ICriticalNotifyCompletion
+internal abstract class SocketAwaitableEventArgs<T>(PipeScheduler scheduler) : SocketAsyncEventArgs(unsafeSuppressExecutionContextFlow: true), ICriticalNotifyCompletion
 {
 	private static readonly Action CompletedCallback = () => { };
 	private static readonly Action<object?> RunContinuationCallbackAction = SocketAwaitableEventArgs<T>.RunContinuationCallback;
 
-	private PipeScheduler Scheduler { get; }
+	private PipeScheduler Scheduler { get; } = scheduler;
 
 	private Action? Callback;
-
-	protected SocketAwaitableEventArgs(PipeScheduler scheduler) : base(unsafeSuppressExecutionContextFlow: true)
-	{
-		this.Scheduler = scheduler;
-	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	protected void ResetCallback()

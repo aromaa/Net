@@ -1,5 +1,4 @@
-﻿using System;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Runtime.CompilerServices;
 
 namespace Net.Buffers;
@@ -17,7 +16,7 @@ public ref partial struct PacketReader
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public bool TryPeekBytes(long amount, out ReadOnlySequence<byte> sequence)
+	public readonly bool TryPeekBytes(long amount, out ReadOnlySequence<byte> sequence)
 	{
 		if (this.Remaining < amount)
 		{
@@ -32,5 +31,5 @@ public ref partial struct PacketReader
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public bool TryPeekBytes(Span<byte> buffer) => this.Reader.TryCopyTo(buffer);
+	public readonly bool TryPeekBytes(Span<byte> buffer) => this.Reader.TryCopyTo(buffer);
 }

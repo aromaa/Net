@@ -1,24 +1,16 @@
-﻿using System;
-using System.Buffers;
-using System.Linq;
+﻿using System.Buffers;
+using System.Runtime.CompilerServices;
 
 namespace Net.Sockets;
 
-public readonly struct SocketAddress : IEquatable<SocketAddress>
+public readonly struct SocketAddress(ReadOnlySequence<byte> address, ushort port) : IEquatable<SocketAddress>
 {
-	private readonly ReadOnlySequence<byte> Address;
-	private readonly ushort Port;
-
-	public SocketAddress(ReadOnlySequence<byte> address, ushort port)
-	{
-		this.Address = address;
-		this.Port = port;
-	}
+	private readonly ReadOnlySequence<byte> Address = address;
+	private readonly ushort Port = port;
 
 	public SocketAddress(byte[] address, ushort port)
+		: this(new ReadOnlySequence<byte>(address), port)
 	{
-		this.Address = new ReadOnlySequence<byte>(address);
-		this.Port = port;
 	}
 
 	public SocketAddress Allocate() => new(this.Address.ToArray(), this.Port);
@@ -52,4 +44,16 @@ public readonly struct SocketAddress : IEquatable<SocketAddress>
 	}
 
 	public override int GetHashCode() => HashCode.Combine(this.Address, this.Port);
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static bool operator ==(SocketAddress left, SocketAddress right)
+	{
+		return left.Equals(right);
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static bool operator !=(SocketAddress left, SocketAddress right)
+	{
+		return !(left == right);
+	}
 }

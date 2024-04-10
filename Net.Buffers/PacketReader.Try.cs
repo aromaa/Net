@@ -1,5 +1,4 @@
-﻿using System;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Runtime.CompilerServices;
 
 namespace Net.Buffers;
@@ -35,6 +34,7 @@ public ref partial struct PacketReader
 
 		return this.Reader.TryReadBigEndian(out Unsafe.As<uint, int>(ref value));
 	}
+
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool TryReadSingle(out float value)
 	{
@@ -52,6 +52,7 @@ public ref partial struct PacketReader
 
 		return this.Reader.TryReadBigEndian(out Unsafe.As<ulong, long>(ref value));
 	}
+
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool TryReadDouble(out double value)
 	{
@@ -67,6 +68,7 @@ public ref partial struct PacketReader
 
 		return this.TryRead7BitEncodedUInt64(out Unsafe.As<long, ulong>(ref value));
 	}
+
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool TryRead7BitEncodedUInt64(out ulong value)
 	{

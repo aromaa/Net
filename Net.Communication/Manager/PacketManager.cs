@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
+﻿using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Net.Buffers;
@@ -14,7 +11,8 @@ using Net.Sockets.Pipeline.Handler;
 
 namespace Net.Communication.Manager;
 
-public abstract partial class PacketManager<T> where T : notnull
+public abstract partial class PacketManager<T>
+	where T : notnull
 {
 	public ILogger<PacketManager<T>>? Logger { get; init; }
 
@@ -36,17 +34,17 @@ public abstract partial class PacketManager<T> where T : notnull
 	{
 		this.ServiceProvider = serviceProvider;
 
-		this.IncomingParsersType = new Dictionary<Type, ParserData>();
-		this.IncomingHandlersType = new Dictionary<Type, HandlerData>();
-		this.IncomingConsumersType = new Dictionary<Type, ConsumerData>();
+		this.IncomingParsersType = [];
+		this.IncomingHandlersType = [];
+		this.IncomingConsumersType = [];
 
-		this.OutgoingComposersType = new Dictionary<Type, ComposerData>();
+		this.OutgoingComposersType = [];
 
-		this.IncomingParsers = new Dictionary<T, IIncomingPacketParser>();
-		this.IncomingHandlers = new Dictionary<Type, IIncomingPacketHandler>();
-		this.IncomingConsumers = new Dictionary<T, IIncomingPacketConsumer>();
+		this.IncomingParsers = [];
+		this.IncomingHandlers = [];
+		this.IncomingConsumers = [];
 
-		this.OutgoingComposers = new Dictionary<Type, (IOutgoingPacketComposer, T)>();
+		this.OutgoingComposers = [];
 
 		this.FindPacketManagerAttributes();
 	}
@@ -127,7 +125,7 @@ public abstract partial class PacketManager<T> where T : notnull
 
 	protected void RebuildHandlers()
 	{
-		Dictionary<T, IIncomingPacketConsumer> consumers = new();
+		Dictionary<T, IIncomingPacketConsumer> consumers = [];
 		foreach ((Type type, ConsumerData data) in this.IncomingConsumersType.OrderByDescending(kvp => kvp.Value.Order))
 		{
 			if (ActivatorUtilities.CreateInstance(this.ServiceProvider, type) is not IIncomingPacketConsumer consumer)
@@ -141,9 +139,9 @@ public abstract partial class PacketManager<T> where T : notnull
 		}
 
 		//Handlers first so we can construct consumers from them when going thru parsers
-		Dictionary<Type, IIncomingPacketHandler> handlers = new();
-		Dictionary<Type, object> byRefHandlers = new(); //Special case
-		Dictionary<Type, HandlerData> genericHandlers = new();
+		Dictionary<Type, IIncomingPacketHandler> handlers = [];
+		Dictionary<Type, object> byRefHandlers = []; //Special case
+		Dictionary<Type, HandlerData> genericHandlers = [];
 		foreach ((Type type, HandlerData data) in this.IncomingHandlersType.OrderByDescending(kvp => kvp.Value.Order))
 		{
 			if (type.ContainsGenericParameters)
@@ -168,13 +166,13 @@ public abstract partial class PacketManager<T> where T : notnull
 				continue;
 			}
 
-			if (!(data.HandlesType is null))
+			if (data.HandlesType is not null)
 			{
 				handlers.TryAdd(data.HandlesType, packetHandler);
 			}
 		}
 
-		Dictionary<T, IIncomingPacketParser> parsers = new();
+		Dictionary<T, IIncomingPacketParser> parsers = [];
 		foreach ((Type type, ParserData data) in this.IncomingParsersType.OrderByDescending(kvp => kvp.Value.Order))
 		{
 			object? parser = ActivatorUtilities.CreateInstance(this.ServiceProvider, type);
@@ -185,7 +183,7 @@ public abstract partial class PacketManager<T> where T : notnull
 				{
 					this.Logger?.LogWarning($"Type {type} was registered as IIncomingPacketParser but does not implement it!");
 				}
-				else if (!(parser is null) && byRefHandlers.TryGetValue(data.HandlesType, out object? byRefHandler))
+				else if (parser is not null && byRefHandlers.TryGetValue(data.HandlesType, out object? byRefHandler))
 				{
 					consumers.TryAdd(data.Id, this.BuildByRefConsumer(data.HandlesType, parser, byRefHandler));
 				}
@@ -214,7 +212,7 @@ public abstract partial class PacketManager<T> where T : notnull
 			consumers.TryAdd(data.Id, this.BuildConsumer(data.HandlesType, packetParser, handler));
 		}
 
-		Dictionary<Type, (IOutgoingPacketComposer Composer, T Id)> composers = new();
+		Dictionary<Type, (IOutgoingPacketComposer Composer, T Id)> composers = [];
 		foreach ((Type type, ComposerData data) in this.OutgoingComposersType.OrderByDescending(kvp => kvp.Value.Order))
 		{
 			if (ActivatorUtilities.CreateInstance(this.ServiceProvider, type) is not IOutgoingPacketComposer composer)
@@ -224,7 +222,7 @@ public abstract partial class PacketManager<T> where T : notnull
 				continue;
 			}
 
-			if (!(data.HandlesType is null))
+			if (data.HandlesType is not null)
 			{
 				composers.TryAdd(data.HandlesType, (composer, data.Id));
 			}
@@ -244,21 +242,21 @@ public abstract partial class PacketManager<T> where T : notnull
 			Type consumerType = typeof(IncomingPacketConsumer<>);
 			consumerType = consumerType.MakeGenericType(type);
 
-			return (IIncomingPacketConsumer)Activator.CreateInstance(consumerType, new object[]
-			{
+			return (IIncomingPacketConsumer)Activator.CreateInstance(consumerType,
+			[
 				parser,
 				handler
-			})!;
+			])!;
 		}
 		else
 		{
 			Type managerType = typeof(IncomingPacketConsumerParseOnly<>);
 			managerType = managerType.MakeGenericType(type);
 
-			return (IIncomingPacketConsumer)Activator.CreateInstance(managerType, new object[]
-			{
+			return (IIncomingPacketConsumer)Activator.CreateInstance(managerType,
+			[
 				parser
-			})!;
+			])!;
 		}
 	}
 

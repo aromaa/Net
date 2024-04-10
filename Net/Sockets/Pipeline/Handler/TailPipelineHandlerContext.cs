@@ -8,7 +8,7 @@ internal sealed class TailPipelineHandlerContext : IPipelineHandlerContext, IPip
 
 	public IPipelineHandler Handler => this;
 
-	public IPipelineHandlerContext Next => null;
+	public IPipelineHandlerContext Next => null!;
 
 	internal TailPipelineHandlerContext(ISocket socket)
 	{

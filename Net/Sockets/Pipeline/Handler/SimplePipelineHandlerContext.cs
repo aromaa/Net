@@ -4,24 +4,15 @@ using Net.Sockets.Pipeline.Handler.Outgoing;
 
 namespace Net.Sockets.Pipeline.Handler;
 
-internal sealed class SimplePipelineHandlerContext : IPipelineHandlerContext
+internal sealed class SimplePipelineHandlerContext(ISocket socket, IPipelineHandler handler, IPipelineHandlerContext next) : IPipelineHandlerContext
 {
-	public ISocket Socket { get; }
+	public ISocket Socket { get; } = socket;
 
-	public IPipelineHandler Handler { get; }
+	public IPipelineHandler Handler { get; } = handler;
 
-	public IPipelineHandlerContext Next { get; internal set; }
+	public IPipelineHandlerContext Next { get; internal set; } = next;
 
 	private bool Removed { get; set; }
-
-	public SimplePipelineHandlerContext(ISocket socket, IPipelineHandler handler, IPipelineHandlerContext next)
-	{
-		this.Socket = socket;
-
-		this.Handler = handler;
-
-		this.Next = next;
-	}
 
 	public void ProgressReadHandler<TPacket>(ref TPacket packet)
 	{

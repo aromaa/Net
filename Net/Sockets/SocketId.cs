@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading;
+﻿using System.Runtime.CompilerServices;
 
 namespace Net.Sockets;
 
@@ -32,5 +31,17 @@ public readonly struct SocketId : IEquatable<SocketId>
 		uint id = (uint)Interlocked.Increment(ref SocketId.NextId);
 
 		return new SocketId(id);
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static bool operator ==(SocketId left, SocketId right)
+	{
+		return left.Equals(right);
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static bool operator !=(SocketId left, SocketId right)
+	{
+		return !(left == right);
 	}
 }

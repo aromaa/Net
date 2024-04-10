@@ -3,7 +3,7 @@
 namespace Net.Collections;
 
 /// <summary>
-/// Internal implementation detail
+/// Internal implementation detail.
 /// </summary>
 public interface ISocketHolder
 {

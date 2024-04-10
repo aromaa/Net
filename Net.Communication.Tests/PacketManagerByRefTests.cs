@@ -1,5 +1,4 @@
-﻿using System;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Net.Buffers;
 using Net.Communication.Attributes;
 using Net.Communication.Manager;
@@ -54,13 +53,9 @@ public class PacketManagerByRefTests
 		}
 	}
 
-	internal sealed class TestByRefManager : PacketManager<uint>
+	internal sealed class TestByRefManager(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider)
 	{
 		internal static readonly TestByRefManager Instance = new(new ServiceCollection().BuildServiceProvider());
-
-		public TestByRefManager(IServiceProvider serviceProvider) : base(serviceProvider)
-		{
-		}
 	}
 }
 
@@ -69,7 +64,7 @@ public class PacketManagerByRefTests
 [PacketParserId(5u)]
 public sealed partial class GenerateByRefConsumerAllInOne
 {
-	internal static byte[] Bytes => new byte[] { 0x5 };
+	internal static byte[] Bytes => [0x5];
 
 	public partial Span<byte> Parse(ref PacketReader reader)
 	{
@@ -89,8 +84,8 @@ public sealed partial class GenerateByRefConsumerAllInOne
 [PacketParserId(3u)]
 public sealed partial class GenerateByRefParser
 {
-	internal static byte[] Bytes => new byte[] { 0x3 };
-        
+	internal static byte[] Bytes => [0x3];
+
 	public partial Span<byte> Parse(ref PacketReader reader)
 	{
 		return GenerateByRefParser.Bytes;
@@ -101,8 +96,8 @@ public sealed partial class GenerateByRefParser
 [PacketManagerRegister(typeof(PacketManagerByRefTests.TestByRefManager))]
 public sealed partial class GenerateByRefHandler
 {
-	internal static byte[] Bytes => new byte[] { 0x3 };
-        
+	internal static byte[] Bytes => [0x3];
+
 	public partial void Handle(IPipelineHandlerContext context, in Span<byte> packet)
 	{
 		byte[] array = packet.ToArray();

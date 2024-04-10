@@ -1,12 +1,10 @@
-﻿using System;
-using System.Threading;
-using Net.Sockets;
+﻿using Net.Sockets;
 
 namespace Net.Utils;
 
 internal static class DelegateUtils
 {
-	private static readonly SocketEvent<ISocket> CompletedSocketEvent = delegate { };
+	private static readonly SocketEvent<ISocket> CompletedSocketEvent = _ => { };
 
 	internal static bool TryCombine(ref SocketEvent<ISocket>? @delegate, SocketEvent<ISocket> value)
 	{

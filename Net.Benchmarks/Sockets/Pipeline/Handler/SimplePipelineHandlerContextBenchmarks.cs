@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Engines;
 using Net.Sockets.Pipeline.Handler;
@@ -75,10 +74,10 @@ public class SimplePipelineHandlerContextBenchmarks
 	private struct HandlerStruct : IIncomingObjectHandler
 	{
 		//This should be inlined
-		public void Handle<T>(IPipelineHandlerContext context, ref T packet) => this.Test();
+		public readonly void Handle<T>(IPipelineHandlerContext context, ref T packet) => this.Test();
 
 		[MethodImpl(MethodImplOptions.NoInlining)]
-		private void Test()
+		private readonly void Test()
 		{
 		}
 	}
@@ -86,10 +85,10 @@ public class SimplePipelineHandlerContextBenchmarks
 	private struct HandlerGenericStruct : IIncomingObjectHandler<int>
 	{
 		//This should be inlined
-		public void Handle(IPipelineHandlerContext context, ref int packet) => this.Test();
+		public readonly void Handle(IPipelineHandlerContext context, ref int packet) => this.Test();
 
 		[MethodImpl(MethodImplOptions.NoInlining)]
-		private void Test()
+		private readonly void Test()
 		{
 			Console.WriteLine(this);
 		}

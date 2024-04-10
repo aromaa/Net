@@ -1,28 +1,22 @@
-﻿using System;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Runtime.CompilerServices;
 
 namespace Net.Buffers;
 
-public ref partial struct PacketReader
+[method: MethodImpl(MethodImplOptions.AggressiveInlining)]
+public ref partial struct PacketReader(ReadOnlySequence<byte> buffer)
 {
-	internal SequenceReader<byte> Reader;
+	internal SequenceReader<byte> Reader = new(buffer);
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public PacketReader(ReadOnlySequence<byte> buffer)
-	{
-		this.Reader = new SequenceReader<byte>(buffer);
-	}
+	public readonly SequencePosition Position => this.Reader.Position;
 
-	public SequencePosition Position => this.Reader.Position;
+	public readonly ReadOnlySequence<byte> UnreadSequence => this.Reader.UnreadSequence;
 
-	public ReadOnlySequence<byte> UnreadSequence => this.Reader.UnreadSequence;
+	public readonly long Consumed => this.Reader.Consumed;
+	public readonly long Remaining => this.Reader.Remaining;
 
-	public long Consumed => this.Reader.Consumed;
-	public long Remaining => this.Reader.Remaining;
-
-	public bool End => this.Reader.End;
-	public bool Readable => !this.Reader.End;
+	public readonly bool End => this.Reader.End;
+	public readonly bool Readable => !this.Reader.End;
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public byte ReadByte() => this.Reader.TryRead(out byte value) ? value : throw new IndexOutOfRangeException();

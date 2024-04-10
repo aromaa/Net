@@ -1,5 +1,4 @@
-﻿using System;
-using Net.Buffers;
+﻿using Net.Buffers;
 
 namespace Net.Sockets.Pipeline.Handler;
 

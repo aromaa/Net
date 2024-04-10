@@ -1,13 +1,7 @@
-﻿using System;
+﻿namespace Net.Communication.Attributes;
 
-namespace Net.Communication.Attributes;
-
-public sealed class PacketManagerTagsAttribute : Attribute
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class PacketManagerTagsAttribute(params string[] tags) : Attribute
 {
-	public string[] Tags { get; }
-
-	public PacketManagerTagsAttribute(params string[] tags)
-	{
-		this.Tags = tags;
-	}
+	public string[] Tags { get; } = tags;
 }

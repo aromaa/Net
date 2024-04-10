@@ -1,6 +1,4 @@
-﻿using System;
-using System.Buffers;
-using System.Linq;
+﻿using System.Buffers;
 using System.Runtime.CompilerServices;
 
 namespace Net.Buffers;
@@ -8,7 +6,7 @@ namespace Net.Buffers;
 public ref partial struct PacketReader
 {
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public bool SequenceEqual(ReadOnlySpan<byte> other)
+	public readonly bool SequenceEqual(ReadOnlySpan<byte> other)
 	{
 		if (!this.TryPeekBytes(other.Length, out ReadOnlySequence<byte> sequence))
 		{
@@ -21,8 +19,8 @@ public ref partial struct PacketReader
 		}
 
 		//Hmm..
-		Span<byte> bytes = other.Length <= 128 
-			? stackalloc byte[other.Length] 
+		Span<byte> bytes = other.Length <= 128
+			? stackalloc byte[other.Length]
 			: new byte[other.Length];
 
 		sequence.CopyTo(bytes);
@@ -31,7 +29,7 @@ public ref partial struct PacketReader
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public int SequenceCompareTo(ReadOnlySpan<byte> other)
+	public readonly int SequenceCompareTo(ReadOnlySpan<byte> other)
 	{
 		this.TryPeekBytes(other.Length, out ReadOnlySequence<byte> sequence);
 

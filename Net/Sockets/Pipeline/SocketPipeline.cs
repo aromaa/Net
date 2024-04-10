@@ -4,20 +4,14 @@ using Net.Sockets.Pipeline.Handler;
 
 namespace Net.Sockets.Pipeline;
 
-public sealed partial class SocketPipeline
+public sealed partial class SocketPipeline(ISocket socket)
 {
-	public ISocket Socket { get; }
+	public ISocket Socket { get; } = socket;
 
-	public IPipelineHandlerContext Context { get; private set; }
+	public IPipelineHandlerContext Context { get; private set; } = new TailPipelineHandlerContext(socket);
 
-	public SocketPipeline(ISocket socket)
-	{
-		this.Socket = socket;
-
-		this.Context = new TailPipelineHandlerContext(socket);
-	}
-
-	public void AddHandlerFirst<T>(T handler) where T: IPipelineHandler
+	public void AddHandlerFirst<T>(T handler)
+		where T : IPipelineHandler
 	{
 		lock (this.Context)
 		{
@@ -25,7 +19,8 @@ public sealed partial class SocketPipeline
 		}
 	}
 
-	public void AddHandlerLast<T>(T handler) where T : IPipelineHandler
+	public void AddHandlerLast<T>(T handler)
+		where T : IPipelineHandler
 	{
 		lock (this.Context)
 		{

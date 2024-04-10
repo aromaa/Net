@@ -1,5 +1,4 @@
-﻿using System;
-using BenchmarkDotNet.Attributes;
+﻿using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.DependencyInjection;
 using Net.Buffers;
 using Net.Communication.Attributes;
@@ -30,12 +29,8 @@ public class PacketManagerBenchmarks
 		this.TestManagerInstance.TryConsumePacket(null!, ref reader, 5);
 	}
 
-	internal sealed class TestManager : PacketManager<uint>
+	internal sealed class TestManager(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider)
 	{
-		public TestManager(IServiceProvider serviceProvider) : base(serviceProvider)
-		{
-		}
-
 		[PacketManagerRegister(typeof(TestManager))]
 		[PacketParserId(3u)]
 		internal sealed class TestParser : IIncomingPacketParser<int>
@@ -54,7 +49,6 @@ public class PacketManagerBenchmarks
 
 	public readonly ref struct Test
 	{
-
 	}
 }
 

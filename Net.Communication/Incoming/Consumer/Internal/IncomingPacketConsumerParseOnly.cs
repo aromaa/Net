@@ -6,14 +6,9 @@ using Net.Sockets.Pipeline.Handler;
 
 namespace Net.Communication.Incoming.Consumer.Internal;
 
-internal sealed class IncomingPacketConsumerParseOnly<T> : IIncomingPacketConsumer, IIncomingPacketParser<T>
+internal sealed class IncomingPacketConsumerParseOnly<T>(IIncomingPacketParser<T> parser) : IIncomingPacketConsumer, IIncomingPacketParser<T>
 {
-	public IIncomingPacketParser<T> Parser { get; }
-
-	public IncomingPacketConsumerParseOnly(IIncomingPacketParser<T> parser)
-	{
-		this.Parser = parser;
-	}
+	public IIncomingPacketParser<T> Parser { get; } = parser;
 
 	public void Read(IPipelineHandlerContext context, ref PacketReader reader)
 	{

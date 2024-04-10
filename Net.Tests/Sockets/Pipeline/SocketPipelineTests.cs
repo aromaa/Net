@@ -1,6 +1,4 @@
-﻿using System;
-using System.Net;
-using System.Threading.Tasks;
+﻿using System.Net;
 using Net.Metadata;
 using Net.Sockets;
 using Net.Sockets.Pipeline;
@@ -97,7 +95,9 @@ public class SocketPipelineTests
 		Assert.Equal(2, handler.ExecutedCount);
 	}
 
-	private static SocketPipeline CreatePipeline<T1, T2>(out T1 t1, out T2 t2) where T1: IPipelineHandler, new() where T2: IPipelineHandler, new()
+	private static SocketPipeline CreatePipeline<T1, T2>(out T1 t1, out T2 t2)
+		where T1 : IPipelineHandler, new()
+		where T2 : IPipelineHandler, new()
 	{
 		DummySocket socket = new();
 
@@ -108,7 +108,10 @@ public class SocketPipelineTests
 		return pipeline;
 	}
 
-	private static SocketPipeline CreatePipeline<T1, T2, T3>(out T1 t1, out T2 t2, out T3 t3) where T1 : IPipelineHandler, new() where T2 : IPipelineHandler, new() where T3 : IPipelineHandler, new()
+	private static SocketPipeline CreatePipeline<T1, T2, T3>(out T1 t1, out T2 t2, out T3 t3)
+		where T1 : IPipelineHandler, new()
+		where T2 : IPipelineHandler, new()
+		where T3 : IPipelineHandler, new()
 	{
 		DummySocket socket = new();
 
@@ -134,7 +137,9 @@ public class SocketPipelineTests
 		public EndPoint? LocalEndPoint { get; }
 		public EndPoint? RemoteEndPoint { get; }
 
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 		public DummySocket()
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 		{
 			this.Pipeline = new SocketPipeline(this);
 		}
@@ -152,9 +157,10 @@ public class SocketPipelineTests
 		{
 			throw new NotImplementedException();
 		}
-
+#pragma warning disable CS0067 // Event is never used.
 		public event SocketEvent<ISocket> OnConnected;
 		public event SocketEvent<ISocket> OnDisconnected;
+#pragma warning restore CS0067
 	}
 
 	private abstract class Helper

@@ -1,9 +1,6 @@
-﻿using System;
-using System.Diagnostics.CodeAnalysis;
-using System.IO.Pipelines;
+﻿using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Net.Sockets.Async;
 using Net.Sockets.Connection.Tcp;
@@ -19,7 +16,7 @@ internal sealed class TcpListener : IListener
 
 	private volatile bool Disposed;
 
-	[AllowNull] internal IListener.SocketEvent AcceptEvent;
+	internal IListener.SocketEvent? AcceptEvent;
 
 	internal TcpListener(IPEndPoint endPoint)
 	{
@@ -62,7 +59,7 @@ internal sealed class TcpListener : IListener
 			try
 			{
 				eventArgs.AcceptSocket = null;
-                    
+
 				Socket socket = this.Socket.AcceptAsync(eventArgs) ? await eventArgs : eventArgs.AcceptSocket!;
 
 				switch (eventArgs.SocketError)
@@ -81,7 +78,7 @@ internal sealed class TcpListener : IListener
 
 				try
 				{
-					this.AcceptEvent.Invoke(connection);
+					this.AcceptEvent!.Invoke(connection);
 
 					if (!connection.Closed)
 					{

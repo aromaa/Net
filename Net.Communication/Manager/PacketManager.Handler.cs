@@ -1,33 +1,20 @@
-﻿using Net.Communication.Attributes;
-using System;
-using System.Collections.Generic;
-using System.Reflection;
+﻿using System.Reflection;
+using Net.Communication.Attributes;
 
 namespace Net.Communication.Manager;
 
 public abstract partial class PacketManager<T>
 {
-	private readonly struct HandlerData
+	private readonly struct HandlerData(int order, Type? handlesType)
 	{
-		public int Order { get; }
+		public int Order { get; } = order;
 
-		public Type? HandlesType { get; }
-
-		public HandlerData(int order, Type? handlesType)
-		{
-			this.Order = order;
-
-			this.HandlesType = handlesType;
-		}
+		public Type? HandlesType { get; } = handlesType;
 	}
 
 	protected void AddHandler(Type type, bool rebuildHandlers = true)
 	{
-		PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>();
-		if (registerAttribute == null)
-		{
-			throw new ArgumentException(nameof(type));
-		}
+		PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>() ?? throw new ArgumentException(null, nameof(type));
 
 		PacketByRefTypeAttribute? byRefAttribute = type.GetCustomAttribute<PacketByRefTypeAttribute>();
 

@@ -1,8 +1,6 @@
-﻿using Net.Communication.Attributes;
-using System;
-using System.Linq;
-using System.Reflection;
+﻿using System.Reflection;
 using Net.Buffers;
+using Net.Communication.Attributes;
 using Net.Communication.Incoming.Consumer;
 using Net.Communication.Incoming.Handler;
 using Net.Communication.Incoming.Parser;
@@ -14,7 +12,7 @@ public abstract partial class PacketManager<T>
 {
 	private void FindPacketManagerAttributes(bool rebuildHandlers = true)
 	{
-		string[] managerTags = this.GetType().GetCustomAttribute<PacketManagerTagsAttribute>()?.Tags ?? Array.Empty<string>();
+		string[] managerTags = this.GetType().GetCustomAttribute<PacketManagerTagsAttribute>()?.Tags ?? [];
 
 		foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
 		{
@@ -32,7 +30,7 @@ public abstract partial class PacketManager<T>
 			{
 				continue;
 			}
-			
+
 			foreach (Type type in assembly.GetTypes())
 			{
 				PacketManagerRegisterAttribute? registerAttribute = type.GetCustomAttribute<PacketManagerRegisterAttribute>();
@@ -43,7 +41,7 @@ public abstract partial class PacketManager<T>
 
 				if (!registerAttribute.Enabled || (!registerAttribute.DefaultManager?.IsAssignableFrom(this.GetType()) ?? true))
 				{
-					string[] targetTags = type.GetCustomAttribute<PacketManagerTagsAttribute>()?.Tags ?? Array.Empty<string>();
+					string[] targetTags = type.GetCustomAttribute<PacketManagerTagsAttribute>()?.Tags ?? [];
 					if (!targetTags.Intersect(managerTags).Any())
 					{
 						continue;
@@ -94,13 +92,12 @@ public abstract partial class PacketManager<T>
 		PacketParserIdAttribute? parserIdAttribute = type.GetCustomAttribute<PacketParserIdAttribute>();
 		if (parserIdAttribute == null || parserIdAttribute.Id is not T parserId)
 		{
-			throw new ArgumentException(nameof(type));
+			throw new ArgumentException(null, nameof(type));
 		}
 
 		return new ConsumerData(
 			id: parserId,
-			order: order
-		);
+			order: order);
 	}
 
 	private ParserData BuildParserData(Type type, PacketManagerRegisterAttribute attribute, PacketByRefTypeAttribute? byRefAttribute)
@@ -113,14 +110,13 @@ public abstract partial class PacketManager<T>
 		PacketParserIdAttribute? parserIdAttribute = type.GetCustomAttribute<PacketParserIdAttribute>();
 		if (parserIdAttribute == null || parserIdAttribute.Id is not T parserId)
 		{
-			throw new ArgumentException(nameof(type));
+			throw new ArgumentException(null, nameof(type));
 		}
 
 		return new ParserData(
 			id: parserId,
 			order: order,
-			handlesType: byRefAttribute == null ? this.GetHandlesType(type, typeof(IIncomingPacketParser<>)) : this.GetParserByRefHandledType(type)
-		);
+			handlesType: byRefAttribute == null ? this.GetHandlesType(type, typeof(IIncomingPacketParser<>)) : this.GetParserByRefHandledType(type));
 	}
 
 	private HandlerData BuildHandlerData(Type type, PacketManagerRegisterAttribute attribute, PacketByRefTypeAttribute? byRefAttribute)
@@ -132,9 +128,9 @@ public abstract partial class PacketManager<T>
 	{
 		return new HandlerData(
 			order: order,
-			handlesType: byRefAttribute == null ? this.GetHandlesType(type, typeof(IIncomingPacketHandler<>)) : this.GetHandlerByRefHandledType(type)
-		); ;
+			handlesType: byRefAttribute == null ? this.GetHandlesType(type, typeof(IIncomingPacketHandler<>)) : this.GetHandlerByRefHandledType(type));
 	}
+
 	private ComposerData BuildComposerData(Type type, PacketManagerRegisterAttribute attribute)
 	{
 		return this.BuildComposerData(type, attribute.Order);
@@ -145,14 +141,13 @@ public abstract partial class PacketManager<T>
 		PacketComposerIdAttribute? consumerIdAttribute = type.GetCustomAttribute<PacketComposerIdAttribute>();
 		if (consumerIdAttribute == null || consumerIdAttribute.Id is not T consumerId)
 		{
-			throw new ArgumentException(nameof(type));
+			throw new ArgumentException(null, nameof(type));
 		}
 
 		return new ComposerData(
 			id: consumerId,
 			order: order,
-			handlesType: this.GetHandlesType(type, typeof(IOutgoingPacketComposer<>))
-		);
+			handlesType: this.GetHandlesType(type, typeof(IOutgoingPacketComposer<>)));
 	}
 
 	private Type? GetHandlesType(Type type, Type interfaceType)
@@ -181,15 +176,10 @@ public abstract partial class PacketManager<T>
 
 	private MethodInfo GetParserByRefParseMethod(Type type)
 	{
-		MethodInfo? methodInfo = type.GetMethod("Parse", new Type[]
-		{
+		MethodInfo? methodInfo = type.GetMethod("Parse",
+		[
 			typeof(PacketReader).MakeByRefType()
-		});
-
-		if (methodInfo is null)
-		{
-			throw new NotSupportedException();
-		}
+		]) ?? throw new NotSupportedException();
 
 		return methodInfo;
 	}
@@ -201,12 +191,7 @@ public abstract partial class PacketManager<T>
 
 	private MethodInfo GetHandlerByRefHandleMethod(Type type)
 	{
-		MethodInfo? methodInfo = type.GetMethod("Handle");
-
-		if (methodInfo is null)
-		{
-			throw new NotSupportedException();
-		}
+		MethodInfo? methodInfo = type.GetMethod("Handle") ?? throw new NotSupportedException();
 
 		return methodInfo;
 	}

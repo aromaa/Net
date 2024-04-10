@@ -1,20 +1,14 @@
-﻿using System;
-using JetBrains.Annotations;
+﻿using JetBrains.Annotations;
 
 namespace Net.Communication.Attributes;
 
 [AttributeUsage(AttributeTargets.Class)]
 [MeansImplicitUse(ImplicitUseTargetFlags.Members)]
-public sealed class PacketByRefTypeAttribute : Attribute
+public sealed class PacketByRefTypeAttribute(Type byRefType) : Attribute
 {
-	public Type ByRefType { get; }
+	public Type ByRefType { get; } = byRefType;
 
 	public ConsumerType Type { get; set; }
-
-	public PacketByRefTypeAttribute(Type byRefType)
-	{
-		this.ByRefType = byRefType;
-	}
 
 	public bool Parser
 	{

@@ -1,7 +1,5 @@
-﻿using System;
-using System.Net;
+﻿using System.Net;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using Net.Metadata;
 using Net.Sockets;

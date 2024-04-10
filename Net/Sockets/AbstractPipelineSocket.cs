@@ -1,13 +1,10 @@
-﻿using System;
-using System.Buffers;
-using System.Collections.Generic;
+﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Net.Buffers;
 using Net.Extensions;
@@ -21,8 +18,7 @@ namespace Net.Sockets;
 internal abstract class AbstractPipelineSocket : ISocket
 {
 	protected static readonly PipeOptions PipeOptions = new(
-		useSynchronizationContext: false
-	);
+		useSynchronizationContext: false);
 
 	public ILogger? Logger { protected get; init; }
 
@@ -88,7 +84,7 @@ internal abstract class AbstractPipelineSocket : ISocket
 		{
 			SocketStatus old = this.Status.Or(SocketStatus.Prepare);
 			if (old.HasFlag(SocketStatus.Prepare) //Don't prepare twice
-			    || old.HasFlag(SocketStatus.Disposing)) //Don't prepare if we are about to dispose
+				|| old.HasFlag(SocketStatus.Disposing)) //Don't prepare if we are about to dispose
 			{
 				return;
 			}
@@ -266,7 +262,7 @@ internal abstract class AbstractPipelineSocket : ISocket
 			return ValueTask.CompletedTask;
 		}
 
-		return SendAsyncInternalSlow(task);
+		return this.SendAsyncInternalSlow(task);
 	}
 
 	private async ValueTask SendAsyncInternalSlow(ISendQueueTask task)
@@ -363,7 +359,7 @@ internal abstract class AbstractPipelineSocket : ISocket
 		{
 			using SocketReceiveAwaitableEventArgs eventArgs = new(AbstractPipelineSocket.PipeOptions.ReaderScheduler);
 
-			List<ArraySegment<byte>> bufferList = new();
+			List<ArraySegment<byte>> bufferList = [];
 
 			while (true)
 			{
@@ -458,7 +454,7 @@ internal abstract class AbstractPipelineSocket : ISocket
 	}
 
 	void ISocket.Disconnect(Exception ex) => this.Disconnect(ex);
-	
+
 	internal void Disconnect(Exception ex, string? reason = default)
 	{
 		reason ??= "Socket faulted";
@@ -644,7 +640,7 @@ internal abstract class AbstractPipelineSocket : ISocket
 		{
 			if (typeof(T) == typeof(SendQueueRaw))
 			{
-				ref SendQueueRaw raw = ref Unsafe.As<T, SendQueueRaw>(ref Unsafe.AsRef(this.Value));
+				ref SendQueueRaw raw = ref Unsafe.As<T, SendQueueRaw>(ref Unsafe.AsRef(in this.Value));
 
 				writer.WriteBytes(raw.Data.Span);
 

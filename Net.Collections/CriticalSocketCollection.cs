@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Net.Collections.Extensions;
 using Net.Sockets;
 
@@ -9,16 +8,10 @@ namespace Net.Collections;
 /// Holds critical data that needs to be initialized and cleaned up cleanly. Ensures that add event has completed before calling the remove event.
 /// </summary>
 /// <typeparam name="TData">The data that the collection protects.</typeparam>
-public sealed class CriticalSocketCollection<TData> : AbstractSocketCollection<CriticalSocketCollection<TData>.SocketHolder>
+public sealed class CriticalSocketCollection<TData>(SocketEvent<ISocket, TData>? addEvent = null, SocketEvent<ISocket, TData>? removeEvent = null) : AbstractSocketCollection<CriticalSocketCollection<TData>.SocketHolder>
 {
-	private readonly SocketEvent<ISocket, TData>? AddEvent;
-	private readonly SocketEvent<ISocket, TData>? RemoveEvent;
-
-	public CriticalSocketCollection(SocketEvent<ISocket, TData>? addEvent = null, SocketEvent<ISocket, TData>? removeEvent = null)
-	{
-		this.AddEvent = addEvent;
-		this.RemoveEvent = removeEvent;
-	}
+	private readonly SocketEvent<ISocket, TData>? AddEvent = addEvent;
+	private readonly SocketEvent<ISocket, TData>? RemoveEvent = removeEvent;
 
 	public bool TryGetSocketData(ISocket socket, out TData data)
 	{
@@ -115,13 +108,17 @@ public sealed class CriticalSocketCollection<TData> : AbstractSocketCollection<C
 		internal TData UserDefinedData;
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		internal SocketHolder(ISocket socket) : this()
+		internal SocketHolder(ISocket socket)
+			: this()
 		{
 			this.Socket = socket;
+
+			this.UserDefinedData = default!;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		internal SocketHolder(ISocket socket, TData userDefinedData) : this()
+		internal SocketHolder(ISocket socket, TData userDefinedData)
+			: this()
 		{
 			this.Socket = socket;
 
@@ -130,7 +127,7 @@ public sealed class CriticalSocketCollection<TData> : AbstractSocketCollection<C
 			this.UserDefinedData = userDefinedData;
 		}
 
-		ISocket ISocketHolder.Socket
+		readonly ISocket ISocketHolder.Socket
 		{
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get => this.Socket;

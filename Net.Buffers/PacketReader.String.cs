@@ -1,5 +1,4 @@
-﻿using System;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -89,7 +88,7 @@ public ref partial struct PacketReader
 
 	//Helpers
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private string DecodeStringFast(ReadOnlySequence<byte> buffer, Encoding encoding)
+	private readonly string DecodeStringFast(ReadOnlySequence<byte> buffer, Encoding encoding)
 	{
 		if (buffer.IsEmpty)
 		{
@@ -103,7 +102,7 @@ public ref partial struct PacketReader
 		return this.DecodeString(buffer, encoding);
 	}
 
-	private string DecodeString(ReadOnlySequence<byte> buffer, Encoding encoding)
+	private readonly string DecodeString(ReadOnlySequence<byte> buffer, Encoding encoding)
 	{
 		int length = 0;
 		foreach (ReadOnlyMemory<byte> segment in buffer)
@@ -122,7 +121,7 @@ public ref partial struct PacketReader
 		});
 	}
 
-	private string DecodeString(ReadOnlyMemory<byte> buffer, Encoding encoding)
+	private readonly string DecodeString(ReadOnlyMemory<byte> buffer, Encoding encoding)
 	{
 		int length = encoding.GetCharCount(buffer.Span);
 
@@ -130,11 +129,11 @@ public ref partial struct PacketReader
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private long ThrowIfMax(long value, long max)
+	private readonly long ThrowIfMax(long value, long max)
 	{
 		if ((ulong)value > (ulong)max)
 		{
-			throw new ArgumentOutOfRangeException();
+			throw new ArgumentOutOfRangeException(nameof(value));
 		}
 
 		return value;

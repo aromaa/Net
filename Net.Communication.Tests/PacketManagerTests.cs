@@ -1,6 +1,4 @@
-﻿using System;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +9,6 @@ using Net.Communication.Incoming.Handler;
 using Net.Communication.Incoming.Parser;
 using Net.Communication.Manager;
 using Net.Communication.Outgoing;
-using Net.Sockets;
 using Net.Sockets.Pipeline.Handler;
 using Xunit;
 
@@ -76,7 +73,7 @@ public class PacketManagerTests
 	{
 		IncomingObjectCatcher catcher = new();
 
-		ISocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
+		DummyIPipelineSocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
 		PacketReader reader = default;
 
 		TestParsersManager manager = new(this.ServiceProvider);
@@ -90,7 +87,7 @@ public class PacketManagerTests
 	{
 		IncomingObjectCatcher catcher = new();
 
-		ISocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
+		DummyIPipelineSocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
 
 		TestHandlersManager manager = new(this.ServiceProvider);
 		manager.TryHandlePacket(socket.Pipeline.Context, "Handler");
@@ -103,7 +100,7 @@ public class PacketManagerTests
 	{
 		IncomingObjectCatcher catcher = new();
 
-		ISocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
+		DummyIPipelineSocket socket = DummyIPipelineSocket.Create(socket => socket.Pipeline.AddHandlerFirst(catcher));
 		PacketReader reader = default;
 
 		TestParserHandlerManager manager = new(this.ServiceProvider);
@@ -128,13 +125,8 @@ public class PacketManagerTests
 		Assert.Equal(Encoding.UTF8.GetBytes("Writer"), stream.ToArray());
 	}
 
-	private sealed class TestParsersManager : PacketManager<uint>
+	private sealed class TestParsersManager(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider)
 	{
-		public TestParsersManager(IServiceProvider serviceProvider) : base(serviceProvider)
-		{
-
-		}
-
 		[PacketManagerRegister(typeof(TestParsersManager))]
 		[PacketParserId(3u)]
 		internal sealed class TestParser : IIncomingPacketParser<string>
@@ -151,12 +143,8 @@ public class PacketManagerTests
 		}
 	}
 
-	private sealed class TestHandlersManager : PacketManager<uint>
+	private sealed class TestHandlersManager(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider)
 	{
-		public TestHandlersManager(IServiceProvider serviceProvider) : base(serviceProvider)
-		{
-		}
-
 		[PacketManagerRegister(typeof(TestHandlersManager))]
 		internal sealed class TestHandler : IIncomingPacketHandler<string>
 		{
@@ -169,12 +157,8 @@ public class PacketManagerTests
 		}
 	}
 
-	private sealed class TestParserHandlerManager : PacketManager<uint>
+	private sealed class TestParserHandlerManager(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider)
 	{
-		public TestParserHandlerManager(IServiceProvider serviceProvider) : base(serviceProvider)
-		{
-		}
-
 		[PacketManagerRegister(typeof(TestParserHandlerManager))]
 		[PacketParserId(1u)]
 		internal sealed class TestParserHandler : IIncomingPacketParser<string>, IIncomingPacketHandler<string>
@@ -193,12 +177,8 @@ public class PacketManagerTests
 		}
 	}
 
-	private sealed class TestConsumersManager : PacketManager<uint>
+	private sealed class TestConsumersManager(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider)
 	{
-		public TestConsumersManager(IServiceProvider serviceProvider) : base(serviceProvider)
-		{
-		}
-
 		[PacketManagerRegister(typeof(TestConsumersManager))]
 		[PacketParserId(6u)]
 		internal sealed class TestConsumer : IIncomingPacketConsumer
@@ -212,12 +192,8 @@ public class PacketManagerTests
 		}
 	}
 
-	private sealed class TestComposersManager : PacketManager<uint>
+	private sealed class TestComposersManager(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider)
 	{
-		public TestComposersManager(IServiceProvider serviceProvider) : base(serviceProvider)
-		{
-		}
-
 		[PacketManagerRegister(typeof(TestComposersManager))]
 		[PacketComposerId(2u)]
 		internal sealed class TestComposer : IOutgoingPacketComposer<string>

@@ -1,6 +1,4 @@
-﻿using System;
-using System.Net;
-using System.Threading.Tasks;
+﻿using System.Net;
 using Net.Metadata;
 using Net.Sockets;
 using Net.Sockets.Pipeline;
@@ -30,6 +28,7 @@ internal sealed class DummyIPipelineSocket : ISocket
 		add => throw new NotImplementedException();
 		remove => throw new NotImplementedException();
 	}
+
 	public event SocketEvent<ISocket> OnDisconnected
 	{
 		add => throw new NotImplementedException();

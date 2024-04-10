@@ -1,17 +1,15 @@
-﻿using Net.Sockets;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
+using Net.Sockets;
 
 namespace Net.Collections;
 
 /// <summary>
-/// Internal implementation detail
+/// Internal implementation detail.
 /// </summary>
 /// <typeparam name="T">Struct (due to shared generics) that holds the collection state.</typeparam>
-public abstract class AbstractSocketCollection<T> where T: struct, ISocketHolder
+public abstract class AbstractSocketCollection<T>
+	where T : struct, ISocketHolder
 {
 	private protected readonly ConcurrentDictionary<SocketId, StrongBox<T>> Sockets;
 
@@ -84,7 +82,7 @@ public abstract class AbstractSocketCollection<T> where T: struct, ISocketHolder
 	{
 		AbstractPipelineSocket.ISendQueueTask task = AbstractPipelineSocket.ISendQueueTask.Create(data);
 
-		List<Task> tasks = new();
+		List<Task> tasks = [];
 		foreach (ISocket socket in this.Values)
 		{
 			ValueTask sendTask = socket.SendAsyncInternal(task);
@@ -101,7 +99,7 @@ public abstract class AbstractSocketCollection<T> where T: struct, ISocketHolder
 	{
 		AbstractPipelineSocket.ISendQueueTask task = AbstractPipelineSocket.ISendQueueTask.Create(data);
 
-		List<Task> tasks = new();
+		List<Task> tasks = [];
 		foreach (ISocket socket in this.Values)
 		{
 			if (matcher.Matches(socket))

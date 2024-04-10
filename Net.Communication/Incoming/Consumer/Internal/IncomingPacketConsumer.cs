@@ -7,16 +7,10 @@ using Net.Sockets.Pipeline.Handler;
 
 namespace Net.Communication.Incoming.Consumer.Internal;
 
-internal sealed class IncomingPacketConsumer<T> : IIncomingPacketConsumer, IIncomingPacketParser<T>, IIncomingPacketHandler<T>
+internal sealed class IncomingPacketConsumer<T>(IIncomingPacketParser<T> parser, IIncomingPacketHandler<T> handler) : IIncomingPacketConsumer, IIncomingPacketParser<T>, IIncomingPacketHandler<T>
 {
-	public IIncomingPacketParser<T> Parser { get; }
-	public IIncomingPacketHandler<T> Handler { get; }
-
-	public IncomingPacketConsumer(IIncomingPacketParser<T> parser, IIncomingPacketHandler<T> handler)
-	{
-		this.Parser = parser;
-		this.Handler = handler;
-	}
+	public IIncomingPacketParser<T> Parser { get; } = parser;
+	public IIncomingPacketHandler<T> Handler { get; } = handler;
 
 	public void Read(IPipelineHandlerContext context, ref PacketReader reader) => this.Handle(context, this.Parse(ref reader));
 

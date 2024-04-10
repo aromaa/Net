@@ -1,18 +1,13 @@
-﻿using System;
-using JetBrains.Annotations;
+﻿using JetBrains.Annotations;
 
 namespace Net.Communication.Attributes;
 
 [MeansImplicitUse]
-public sealed class PacketManagerRegisterAttribute : Attribute
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class PacketManagerRegisterAttribute(Type? defaultManager = default) : Attribute
 {
-	public Type? DefaultManager { get; }
+	public Type? DefaultManager { get; } = defaultManager;
 
 	public bool Enabled { get; set; } = true;
 	public int Order { get; set; }
-
-	public PacketManagerRegisterAttribute(Type? defaultManager = default)
-	{
-		this.DefaultManager = defaultManager;
-	}
 }

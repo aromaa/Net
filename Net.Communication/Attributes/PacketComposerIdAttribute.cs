@@ -1,13 +1,7 @@
-﻿using System;
+﻿namespace Net.Communication.Attributes;
 
-namespace Net.Communication.Attributes;
-
-public sealed class PacketComposerIdAttribute : Attribute
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class PacketComposerIdAttribute(object id) : Attribute
 {
-	public object Id { get; }
-
-	public PacketComposerIdAttribute(object id)
-	{
-		this.Id = id;
-	}
+	public object Id { get; } = id;
 }

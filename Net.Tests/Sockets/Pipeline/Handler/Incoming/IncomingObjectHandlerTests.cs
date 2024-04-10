@@ -1,5 +1,4 @@
-﻿using System;
-using Net.Buffers;
+﻿using Net.Buffers;
 using Net.Sockets;
 using Net.Sockets.Pipeline.Handler;
 using Net.Sockets.Pipeline.Handler.Incoming;
@@ -9,7 +8,7 @@ namespace Net.Tests.Sockets.Pipeline.Handler.Incoming;
 
 public class IncomingObjectHandlerTests
 {
-	private DummyContext Context = new();
+	private readonly DummyContext Context = new();
 
 	[Fact]
 	public void TestHandlerReference()
@@ -62,7 +61,7 @@ public class IncomingObjectHandlerTests
 	[Fact]
 	public void TestHandlerGenericImplicitWrongType()
 	{
-		object value = null;
+		object? value = null;
 
 		HandlerGeneric handler = new();
 		((IIncomingObjectHandler)handler).Handle(this.Context, ref value);

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 
 namespace Net.Buffers;
 
@@ -45,6 +44,7 @@ public ref partial struct PacketReader
 
 		return this.TryRead7BitEncodedUInt32(out Unsafe.As<int, uint>(ref value));
 	}
+
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool TryRead7BitEncodedUInt32(out uint value)
 	{
@@ -84,7 +84,8 @@ public ref partial struct PacketReader
 	}
 
 	//Stateful
-	public struct Stateful7BitDecoder<T> where T: unmanaged
+	public struct Stateful7BitDecoder<T>
+		where T : unmanaged
 	{
 		private static readonly int MaxBytesWithoutOverflow;
 
@@ -107,7 +108,7 @@ public ref partial struct PacketReader
 		private T Value;
 		private int Shift;
 
-		public bool Done => this.Shift == -1;
+		public readonly bool Done => this.Shift == -1;
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public bool TryRead(ref PacketReader reader, out T value)
