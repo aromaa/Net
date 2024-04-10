@@ -30,7 +30,7 @@ public abstract partial class PacketManager<T>
 
 	private Dictionary<Type, (IOutgoingPacketComposer Composer, T Id)> OutgoingComposers;
 
-	protected PacketManager(IServiceProvider serviceProvider)
+	private PacketManager(IServiceProvider serviceProvider, bool scan)
 	{
 		this.ServiceProvider = serviceProvider;
 
@@ -46,7 +46,36 @@ public abstract partial class PacketManager<T>
 
 		this.OutgoingComposers = [];
 
-		this.FindPacketManagerAttributes();
+		if (scan)
+		{
+			this.FindPacketManagerAttributes();
+		}
+	}
+
+	protected PacketManager(IServiceProvider serviceProvider)
+		: this(serviceProvider, true)
+	{
+	}
+
+	protected PacketManager(IServiceProvider serviceProvider, PacketManagerData<T> packetManagerData)
+		: this(serviceProvider, false)
+	{
+		foreach (PacketManagerData<T>.ParserData parserData in packetManagerData.Parsers)
+		{
+			this.IncomingParsersType.Add(parserData.Type, new ParserData(parserData.Id, 0, parserData.HandlesType));
+		}
+
+		foreach (PacketManagerData<T>.HandlerData handlerData in packetManagerData.Handlers)
+		{
+			this.IncomingHandlersType.Add(handlerData.Type, new HandlerData(0, handlerData.HandlesType));
+		}
+
+		foreach (PacketManagerData<T>.ComposerData composerData in packetManagerData.Composers)
+		{
+			this.OutgoingComposersType.Add(composerData.Type, new ComposerData(composerData.Id, 0, composerData.HandlesType));
+		}
+
+		this.RebuildHandlers();
 	}
 
 	protected void Combine(PacketManager<T> packetManager, bool parsers = true, bool handlers = true, bool consumers = true, bool composers = true)
