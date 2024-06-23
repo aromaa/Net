@@ -1,15 +1,12 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
-using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Net.Buffers;
 using Net.Extensions;
 using Net.Metadata;
-using Net.Sockets.Async;
 using Net.Sockets.Pipeline;
 using Net.Utils;
 
