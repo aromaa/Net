@@ -22,8 +22,6 @@ internal abstract class AbstractPipelineSocket : ISocket
 
 	public ILogger? Logger { protected get; init; }
 
-	protected Socket Socket { get; }
-
 	public SocketId Id { get; }
 
 	private SocketStatus Status;
@@ -39,10 +37,8 @@ internal abstract class AbstractPipelineSocket : ISocket
 	private event SocketEvent<ISocket>? ConnectedEvent;
 	private event SocketEvent<ISocket>? DisconnectedEvent;
 
-	protected AbstractPipelineSocket(Socket socket)
+	protected AbstractPipelineSocket()
 	{
-		this.Socket = socket;
-
 		this.Id = SocketId.GenerateNew();
 
 		this.Metadata = new MetadataMap();
@@ -51,8 +47,8 @@ internal abstract class AbstractPipelineSocket : ISocket
 
 	public bool Closed => this.Status.HasFlag(SocketStatus.Disposed);
 
-	public EndPoint? LocalEndPoint => this.Socket.LocalEndPoint;
-	public EndPoint? RemoteEndPoint => this.Socket.RemoteEndPoint;
+	public abstract EndPoint? LocalEndPoint { get; }
+	public abstract EndPoint? RemoteEndPoint { get; }
 
 	public event SocketEvent<ISocket> OnConnected
 	{
@@ -142,15 +138,8 @@ internal abstract class AbstractPipelineSocket : ISocket
 
 	private void ReceiveCompleted(PipeWriter writer)
 	{
-		try
-		{
-			//Shutdown the receive so we don't get more data which we won't read
-			this.Socket.Shutdown(SocketShutdown.Receive);
-		}
-		catch
-		{
-			//Ignored
-		}
+		//Shutdown the receive so we don't get more data which we won't read
+		this.ShutdownReceive();
 
 		try
 		{
@@ -161,6 +150,8 @@ internal abstract class AbstractPipelineSocket : ISocket
 			this.Logger?.LogError(e, "Failed to complete receive pipe writer");
 		}
 	}
+
+	protected abstract void ShutdownReceive();
 
 	private async Task HandleData(PipeReader reader)
 	{
@@ -357,62 +348,7 @@ internal abstract class AbstractPipelineSocket : ISocket
 	{
 		try
 		{
-			using SocketReceiveAwaitableEventArgs eventArgs = new(AbstractPipelineSocket.PipeOptions.ReaderScheduler);
-
-			List<ArraySegment<byte>> bufferList = [];
-
-			while (true)
-			{
-				if (!reader.TryRead(out ReadResult readResult))
-				{
-					readResult = await reader.ReadAsync().ConfigureAwait(false);
-				}
-
-				ReadOnlySequence<byte> buffer = readResult.Buffer;
-				if (!buffer.IsSingleSegment)
-				{
-					foreach (ReadOnlyMemory<byte> memory in buffer)
-					{
-						bufferList.Add(MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment)
-							? segment
-							: memory.ToArray()); //Not array backed, create heap copy :/
-					}
-
-					eventArgs.SetBuffer(null);
-					eventArgs.BufferList = bufferList;
-
-					//Clear, don't hold references to old memory
-					//BufferList has its internal buffer also, where it copies the values to..
-					bufferList.Clear();
-				}
-				else
-				{
-					eventArgs.BufferList = null;
-					eventArgs.SetBuffer(MemoryMarshal.AsMemory(buffer.First));
-				}
-
-				if (this.Socket.SendAsync(eventArgs))
-				{
-					await eventArgs;
-				}
-
-				//Try to send before exiting!
-				if (readResult.IsCanceled || readResult.IsCompleted)
-				{
-					break;
-				}
-
-				switch (eventArgs.SocketError)
-				{
-					case SocketError.Success:
-						break;
-					default:
-						this.Disconnect($"Socket send failed: {eventArgs.SocketError}");
-						return;
-				}
-
-				reader.AdvanceTo(buffer.End);
-			}
+			await this.HandleSend(reader).ConfigureAwait(false);
 		}
 		catch (Exception e)
 		{
@@ -424,17 +360,12 @@ internal abstract class AbstractPipelineSocket : ISocket
 		}
 	}
 
+	protected abstract Task HandleSend(PipeReader reader);
+
 	private void SendCompleted(PipeReader reader)
 	{
-		try
-		{
-			//Shutdown the send, we aren't sending anything anymore
-			this.Socket.Shutdown(SocketShutdown.Send);
-		}
-		catch
-		{
-			//Ignored
-		}
+		//Shutdown the send, we aren't sending anything anymore
+		this.ShutdownSend();
 
 		try
 		{
@@ -452,6 +383,8 @@ internal abstract class AbstractPipelineSocket : ISocket
 			this.Dispose();
 		}
 	}
+
+	protected abstract void ShutdownSend();
 
 	void ISocket.Disconnect(Exception ex) => this.Disconnect(ex);
 
@@ -516,7 +449,7 @@ internal abstract class AbstractPipelineSocket : ISocket
 
 			try
 			{
-				this.Socket.Dispose();
+				this.DisposeCore();
 			}
 			catch (Exception e)
 			{
@@ -525,17 +458,12 @@ internal abstract class AbstractPipelineSocket : ISocket
 		}
 	}
 
+	protected abstract void DisposeCore();
+
 	private void ClosePipe()
 	{
-		try
-		{
-			//Shutdown the receive so we don't get more data which we won't read
-			this.Socket.Shutdown(SocketShutdown.Receive);
-		}
-		catch
-		{
-			//Ignored
-		}
+		//Shutdown the receive so we don't get more data which we won't read
+		this.ShutdownReceive();
 
 		//We are forcibly tearing down the socket, end everything
 		try
@@ -589,7 +517,7 @@ internal abstract class AbstractPipelineSocket : ISocket
 
 		try
 		{
-			this.Socket.Dispose();
+			this.DisposeCore();
 		}
 		catch (Exception e)
 		{

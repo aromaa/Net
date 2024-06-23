@@ -1,13 +1,15 @@
-﻿using System.IO.Pipelines;
+﻿using System.Buffers;
+using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 using Net.Buffers;
 using Net.Sockets.Async;
 
 namespace Net.Sockets.Connection.Tcp;
 
-internal sealed class TcpSocketConnection : AbstractPipelineSocket
+internal sealed class TcpSocketConnection : AbstractSocket
 {
 	private string? DisconnectReason;
 
@@ -57,6 +59,66 @@ internal sealed class TcpSocketConnection : AbstractPipelineSocket
 			{
 				break;
 			}
+		}
+	}
+
+	protected override async Task HandleSend(PipeReader reader)
+	{
+		using SocketReceiveAwaitableEventArgs eventArgs = new(AbstractPipelineSocket.PipeOptions.ReaderScheduler);
+
+		List<ArraySegment<byte>> bufferList = [];
+
+		while (true)
+		{
+			if (!reader.TryRead(out ReadResult readResult))
+			{
+				readResult = await reader.ReadAsync().ConfigureAwait(false);
+			}
+
+			ReadOnlySequence<byte> buffer = readResult.Buffer;
+			if (!buffer.IsSingleSegment)
+			{
+				foreach (ReadOnlyMemory<byte> memory in buffer)
+				{
+					bufferList.Add(MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment)
+						? segment
+						: memory.ToArray()); //Not array backed, create heap copy :/
+				}
+
+				eventArgs.SetBuffer(null);
+				eventArgs.BufferList = bufferList;
+
+				//Clear, don't hold references to old memory
+				//BufferList has its internal buffer also, where it copies the values to...
+				bufferList.Clear();
+			}
+			else
+			{
+				eventArgs.BufferList = null;
+				eventArgs.SetBuffer(MemoryMarshal.AsMemory(buffer.First));
+			}
+
+			if (this.Socket.SendAsync(eventArgs))
+			{
+				await eventArgs;
+			}
+
+			//Try to send before exiting!
+			if (readResult.IsCanceled || readResult.IsCompleted)
+			{
+				break;
+			}
+
+			switch (eventArgs.SocketError)
+			{
+				case SocketError.Success:
+					break;
+				default:
+					this.Disconnect($"Socket send failed: {eventArgs.SocketError}");
+					return;
+			}
+
+			reader.AdvanceTo(buffer.End);
 		}
 	}
 

@@ -11,7 +11,7 @@ internal sealed class TcpListener : IListener
 {
 	private readonly Socket Socket;
 
-	private readonly ILogger<AbstractPipelineSocket>? ListenerLogger;
+	private readonly ILogger<TcpListener>? ListenerLogger;
 	private readonly ILogger<TcpSocketConnection>? ConnectionLogger;
 
 	private volatile bool Disposed;
@@ -38,7 +38,7 @@ internal sealed class TcpListener : IListener
 				return;
 			}
 
-			this.ListenerLogger = (ILogger<AbstractPipelineSocket>?)value.GetService(typeof(ILogger<AbstractPipelineSocket>));
+			this.ListenerLogger = (ILogger<TcpListener>?)value.GetService(typeof(ILogger<TcpListener>));
 			this.ConnectionLogger = (ILogger<TcpSocketConnection>?)value.GetService(typeof(ILogger<TcpSocketConnection>));
 		}
 	}

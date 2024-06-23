@@ -12,7 +12,7 @@ using Net.Utils;
 
 namespace Net.Sockets.Listener.Udp;
 
-internal sealed class UdpListener : AbstractPipelineSocket, IListener
+internal sealed class UdpListener : AbstractSocket, IListener
 {
 	private readonly int SourceAddressLength;
 	private readonly int SourceHeaderLength;
@@ -91,6 +91,8 @@ internal sealed class UdpListener : AbstractPipelineSocket, IListener
 			}
 		}
 	}
+
+	protected override Task HandleSend(PipeReader reader) => throw new NotImplementedException();
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	protected override void ProcessIncomingData(ref PacketReader reader)
