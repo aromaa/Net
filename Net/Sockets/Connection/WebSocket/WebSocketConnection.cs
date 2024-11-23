@@ -99,9 +99,27 @@ internal sealed class WebSocketConnection : AbstractPipelineSocket
 
 	protected override void ShutdownSend()
 	{
+		try
+		{
+			this.webSocket.CloseAsync(WebSocketCloseStatus.Empty, this.DisconnectReason, default);
+		}
+		catch
+		{
+			//Ignored
+		}
 	}
 
-	protected override void ShutdownReceive() => this.webSocket.CloseAsync(WebSocketCloseStatus.Empty, this.DisconnectReason, default);
+	protected override void ShutdownReceive()
+	{
+		try
+		{
+			this.webSocket.CloseOutputAsync(WebSocketCloseStatus.Empty, this.DisconnectReason, default);
+		}
+		catch
+		{
+			//Ignored
+		}
+	}
 
 	protected override void DisposeCore() => this.webSocket.Dispose();
 }
