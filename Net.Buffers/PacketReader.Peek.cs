@@ -14,7 +14,7 @@ public ref partial struct PacketReader
 	public readonly ReadOnlySequence<byte> PeekBytes(long amount) => this.Reader.Sequence.Slice(start: this.Reader.Position, amount);
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public readonly void PeekBytes(Span<byte> buffer)
+	public readonly void PeekBytes(scoped Span<byte> buffer)
 	{
 		if (!this.Reader.TryCopyTo(buffer))
 		{

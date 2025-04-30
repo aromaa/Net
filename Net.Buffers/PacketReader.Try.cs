@@ -123,7 +123,7 @@ public ref partial struct PacketReader
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public bool TryReadBytes(Span<byte> buffer)
+	public bool TryReadBytes(scoped Span<byte> buffer)
 	{
 		bool result = this.Reader.TryCopyTo(buffer);
 		if (result)

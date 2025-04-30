@@ -6,7 +6,7 @@ namespace Net.Buffers;
 public ref partial struct PacketReader
 {
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public readonly bool SequenceEqual(ReadOnlySpan<byte> other)
+	public readonly bool SequenceEqual(scoped ReadOnlySpan<byte> other)
 	{
 		if (!this.TryPeekBytes(other.Length, out ReadOnlySequence<byte> sequence))
 		{
@@ -29,7 +29,7 @@ public ref partial struct PacketReader
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public readonly int SequenceCompareTo(ReadOnlySpan<byte> other)
+	public readonly int SequenceCompareTo(scoped ReadOnlySpan<byte> other)
 	{
 		this.TryPeekBytes(other.Length, out ReadOnlySequence<byte> sequence);
 

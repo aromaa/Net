@@ -93,7 +93,7 @@ public ref partial struct PacketWriter
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public void WriteBytes(ReadOnlySpan<byte> value) => value.CopyTo(this.GetBuffer(value.Length));
+	public void WriteBytes(scoped ReadOnlySpan<byte> value) => value.CopyTo(this.GetBuffer(value.Length));
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void WriteBytes(ref PacketReader reader)

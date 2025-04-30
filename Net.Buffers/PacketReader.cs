@@ -84,7 +84,7 @@ public ref partial struct PacketReader(ReadOnlySequence<byte> buffer)
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public void ReadBytes(Span<byte> buffer)
+	public void ReadBytes(scoped Span<byte> buffer)
 	{
 		if (!this.Reader.TryCopyTo(buffer))
 		{

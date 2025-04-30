@@ -31,5 +31,5 @@ public ref partial struct PacketReader
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public readonly bool TryPeekBytes(Span<byte> buffer) => this.Reader.TryCopyTo(buffer);
+	public readonly bool TryPeekBytes(scoped Span<byte> buffer) => this.Reader.TryCopyTo(buffer);
 }
