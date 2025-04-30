@@ -51,20 +51,3 @@ public class PacketManagerBenchmarks
 	{
 	}
 }
-
-[PacketByRefType(typeof(PacketManagerBenchmarks.Test), Parser = true)]
-[PacketManagerRegister(typeof(PacketManagerBenchmarks.TestManager))]
-[PacketParserId(5u)]
-public sealed partial class GenerateByRefParser
-{
-	public partial PacketManagerBenchmarks.Test Parse(ref PacketReader reader) => default;
-}
-
-[PacketByRefType(typeof(PacketManagerBenchmarks.Test), Handler = true)]
-[PacketManagerRegister(typeof(PacketManagerBenchmarks.TestManager))]
-public sealed partial class GenerateByRefHandler
-{
-	public partial void Handle(IPipelineHandlerContext context, in PacketManagerBenchmarks.Test packet)
-	{
-	}
-}
