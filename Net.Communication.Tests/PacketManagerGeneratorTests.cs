@@ -24,9 +24,9 @@ public partial class PacketManagerGeneratorTests
 		], data.Parsers.AsEnumerable());
 
 		Assert.Equal([
-			new PacketManagerData<uint>.HandlerData(typeof(TestHandlerNonGeneric)),
-			new PacketManagerData<uint>.HandlerData(typeof(TestHandlerGeneric), typeof(string)),
-			new PacketManagerData<uint>.HandlerData(typeof(TestHandlerGenericConstraint<>), typeof(IDisposable))
+			new PacketManagerData.HandlerData(typeof(TestHandlerNonGeneric)),
+			new PacketManagerData.HandlerData(typeof(TestHandlerGeneric), typeof(string)),
+			new PacketManagerData.HandlerData(typeof(TestHandlerGenericConstraint<>), typeof(IDisposable))
 		], data.Handlers.AsEnumerable());
 		Assert.Equal([
 			new PacketManagerData<uint>.ComposerData(typeof(TestComposerNonGeneric), 11u),
@@ -35,8 +35,33 @@ public partial class PacketManagerGeneratorTests
 		], data.Composers.AsEnumerable());
 	}
 
+	[Fact]
+	public void HasCorrectPacketHandlers()
+	{
+		PacketManagerData data = PacketManagerGeneratorTests.GetTestPacketManagerHandlerData();
+
+		Assert.Equal([
+			new PacketManagerData.HandlerData(typeof(TestHandlerNonGeneric)),
+			new PacketManagerData.HandlerData(typeof(TestHandlerGeneric), typeof(string)),
+			new PacketManagerData.HandlerData(typeof(TestHandlerGenericConstraint<>), typeof(IDisposable))
+		], data.Handlers.AsEnumerable());
+	}
+
+	[Fact]
+	public void HasCorrectPacketData2()
+	{
+		PacketManagerData<string> data = PacketManagerGeneratorTests.GetTestStringPacketManagerData();
+
+		Assert.Equal([
+			new PacketManagerData<string>.ParserData(typeof(TestStringParser), "TEST"),
+		], data.Parsers.AsEnumerable());
+	}
+
 	[PacketManagerGenerator(typeof(TestPacketManager))]
 	private static partial PacketManagerData<uint> GetTestPacketManagerData();
+
+	[PacketManagerGenerator(typeof(TestPacketManager))]
+	private static partial PacketManagerData GetTestPacketManagerHandlerData();
 
 	private sealed class TestPacketManager(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider);
 
@@ -102,5 +127,18 @@ public partial class PacketManagerGeneratorTests
 		where T : IDisposable
 	{
 		public void Compose(ref PacketWriter writer, in T packet) => throw new NotImplementedException();
+	}
+
+	private sealed class TestStringPacketManager(IServiceProvider serviceProvider) : PacketManager<string>(serviceProvider);
+
+	[PacketManagerGenerator(typeof(TestStringPacketManager))]
+	private static partial PacketManagerData<string> GetTestStringPacketManagerData();
+
+	[PacketManagerRegister(typeof(TestStringPacketManager))]
+	[PacketParserId("TEST")]
+	private sealed class TestStringParser : IIncomingPacketParser
+	{
+		[return: NotNull]
+		public T Parse<T>(ref PacketReader reader) => throw new NotImplementedException();
 	}
 }

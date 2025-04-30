@@ -2,6 +2,7 @@
 using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Net.Communication.SourceGenerator;
@@ -112,12 +113,17 @@ public sealed class PacketManagerGenerator : IIncrementalGenerator
 
 				string returnType = $"global::Net.Communication.Manager.{generatorMethod.ReturnType}";
 
+				bool full = generatorMethod.ReturnType is GenericNameSyntax;
+
 				writer.WriteLine($"{generatorMethod.Modifiers} {returnType} {generatorMethod.Identifier}({generatorMethod.ParameterList.Parameters})");
 				writer.WriteLine("{");
 				writer.Indent++;
-				writer.WriteLine($"global::System.Collections.Immutable.ImmutableArray<{returnType}.ParserData>.Builder parsers = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{returnType}.ParserData>();");
 				writer.WriteLine($"global::System.Collections.Immutable.ImmutableArray<{returnType}.HandlerData>.Builder handlers = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{returnType}.HandlerData>();");
-				writer.WriteLine($"global::System.Collections.Immutable.ImmutableArray<{returnType}.ComposerData>.Builder composers = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{returnType}.ComposerData>();");
+				if (full)
+				{
+					writer.WriteLine($"global::System.Collections.Immutable.ImmutableArray<{returnType}.ParserData>.Builder parsers = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{returnType}.ParserData>();");
+					writer.WriteLine($"global::System.Collections.Immutable.ImmutableArray<{returnType}.ComposerData>.Builder composers = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{returnType}.ComposerData>();");
+				}
 
 				foreach ((INamedTypeSymbol type, ImmutableArray<INamedTypeSymbol> managers) in value.Right)
 				{
@@ -127,8 +133,8 @@ public sealed class PacketManagerGenerator : IIncrementalGenerator
 					}
 
 					bool handler = false;
-					object? parserId = null;
-					object? composerId = null;
+					string? parserId = null;
+					string? composerId = null;
 					ITypeSymbol? parserHandlesType = null;
 					ITypeSymbol? handlerHandlesType = null;
 					ITypeSymbol? composerHandlesType = null;
@@ -136,7 +142,7 @@ public sealed class PacketManagerGenerator : IIncrementalGenerator
 					{
 						if (implementedInterface.IsGenericType)
 						{
-							if (SymbolEqualityComparer.Default.Equals(implementedInterface.ConstructedFrom, parserGenericType))
+							if (full && SymbolEqualityComparer.Default.Equals(implementedInterface.ConstructedFrom, parserGenericType))
 							{
 								parserHandlesType = GetHandledType(implementedInterface.TypeArguments[0]);
 							}
@@ -145,7 +151,7 @@ public sealed class PacketManagerGenerator : IIncrementalGenerator
 								handler = true;
 								handlerHandlesType = GetHandledType(implementedInterface.TypeArguments[0]);
 							}
-							else if (SymbolEqualityComparer.Default.Equals(implementedInterface.ConstructedFrom, composerGenericType))
+							else if (full && SymbolEqualityComparer.Default.Equals(implementedInterface.ConstructedFrom, composerGenericType))
 							{
 								composerHandlesType = GetHandledType(implementedInterface.TypeArguments[0]);
 							}
@@ -168,13 +174,13 @@ public sealed class PacketManagerGenerator : IIncrementalGenerator
 							continue;
 						}
 
-						if (SymbolEqualityComparer.Default.Equals(implementedInterface, parserType))
+						if (full && SymbolEqualityComparer.Default.Equals(implementedInterface, parserType))
 						{
 							foreach (AttributeData attributeData in type.GetAttributes())
 							{
 								if (SymbolEqualityComparer.Default.Equals(attributeData.AttributeClass, parserIdType))
 								{
-									parserId = attributeData.ConstructorArguments[0].Value;
+									parserId = attributeData.ConstructorArguments[0].ToCSharpString();
 
 									break;
 								}
@@ -184,13 +190,13 @@ public sealed class PacketManagerGenerator : IIncrementalGenerator
 						{
 							handler = true;
 						}
-						else if (SymbolEqualityComparer.Default.Equals(implementedInterface, composerType))
+						else if (full && SymbolEqualityComparer.Default.Equals(implementedInterface, composerType))
 						{
 							foreach (AttributeData attributeData in type.GetAttributes())
 							{
 								if (SymbolEqualityComparer.Default.Equals(attributeData.AttributeClass, composerIdType))
 								{
-									composerId = attributeData.ConstructorArguments[0].Value;
+									composerId = attributeData.ConstructorArguments[0].ToCSharpString();
 
 									break;
 								}
@@ -214,7 +220,14 @@ public sealed class PacketManagerGenerator : IIncrementalGenerator
 					}
 				}
 
-				writer.WriteLine($"return new {returnType}(parsers.ToImmutable(), handlers.ToImmutable(), composers.ToImmutable());");
+				if (full)
+				{
+					writer.WriteLine($"return new {returnType}(parsers.ToImmutable(), handlers.ToImmutable(), composers.ToImmutable());");
+				}
+				else
+				{
+					writer.WriteLine($"return new {returnType}(handlers.ToImmutable());");
+				}
 
 				writer.Indent--;
 				writer.WriteLine("}");
