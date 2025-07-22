@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Net.Buffers;
@@ -125,6 +126,39 @@ public class PacketManagerTests
 		Assert.Equal(Encoding.UTF8.GetBytes("Writer"), stream.ToArray());
 	}
 
+	[Fact]
+	public void TestGenericConsumerWorks()
+	{
+		using MemoryStream stream = new();
+
+		PacketWriter writer = new(PipeWriter.Create(stream));
+
+		TestGenericComposersManager manager = new(this.ServiceProvider);
+		manager.TryComposePacket(ref writer, new StrongBox<string>("Writer"), out uint id);
+
+		writer.Dispose();
+
+		Assert.Equal(3u, id);
+		Assert.Equal(Encoding.UTF8.GetBytes("Writer"), stream.ToArray());
+	}
+
+	[Fact]
+	public void TestGenericConsumerCombineWorks()
+	{
+		using MemoryStream stream = new();
+
+		PacketWriter writer = new(PipeWriter.Create(stream));
+
+		TestGenericComposerHandlerMissing manager = new(this.ServiceProvider);
+		TestGenericComposersCombineManager combineManager = new(this.ServiceProvider, manager);
+		combineManager.TryComposePacket(ref writer, new StrongBox<int>(5), out uint id);
+
+		writer.Dispose();
+
+		Assert.Equal(8u, id);
+		Assert.Equal(BitConverter.GetBytes(5), stream.ToArray());
+	}
+
 	private sealed class TestParsersManager(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider)
 	{
 		[PacketManagerRegister(typeof(TestParsersManager))]
@@ -202,6 +236,65 @@ public class PacketManagerTests
 			{
 				writer.WriteBytes(Encoding.UTF8.GetBytes(packet));
 			}
+		}
+	}
+
+	private class TestGenericComposersManager(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider)
+	{
+		[PacketManagerRegister(typeof(TestGenericComposersManager))]
+		[PacketComposerId(3u)]
+		internal sealed class TestComposer<TData, TDataHandler> : IOutgoingPacketComposer<StrongBox<TData>>
+			where TDataHandler : IComposerDataHandler<TData>
+		{
+			public void Compose(ref PacketWriter writer, in StrongBox<TData> packet)
+			{
+				writer.WriteBytes(TDataHandler.Serialize(packet.Value!));
+			}
+		}
+
+		internal interface IComposerDataHandler<in T>
+		{
+			public static abstract byte[] Serialize(T value);
+		}
+
+		[PacketManagerRegister(typeof(TestGenericComposersManager))]
+		internal sealed class StringComposerDataHandler : IComposerDataHandler<string>
+		{
+			public static byte[] Serialize(string value) => Encoding.UTF8.GetBytes(value);
+		}
+	}
+
+	private class TestGenericComposerHandlerMissing(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider)
+	{
+		[PacketManagerRegister(typeof(TestGenericComposerHandlerMissing))]
+		[PacketComposerId(8u)]
+		internal sealed class TestComposer<TData, TDataHandler> : IOutgoingPacketComposer<StrongBox<TData>>
+			where TDataHandler : IComposerDataHandler<TData>
+		{
+			public void Compose(ref PacketWriter writer, in StrongBox<TData> packet)
+			{
+				writer.WriteBytes(TDataHandler.Serialize(packet.Value!));
+			}
+		}
+
+		internal interface IComposerDataHandler<in T>
+		{
+			public static abstract byte[] Serialize(T value);
+		}
+	}
+
+	private sealed class TestGenericComposersCombineManager : PacketManager<uint>
+	{
+		internal TestGenericComposersCombineManager(IServiceProvider serviceProvider, PacketManager<uint> other)
+			: base(serviceProvider)
+		{
+			this.Combine(other);
+		}
+
+		[PacketManagerRegister(typeof(TestGenericComposersCombineManager))]
+		internal sealed class IntComposerDataHandler : TestGenericComposerHandlerMissing.IComposerDataHandler<int>
+		{
+			public static byte[] Serialize(int value) => BitConverter.GetBytes(value);
 		}
 	}
 }

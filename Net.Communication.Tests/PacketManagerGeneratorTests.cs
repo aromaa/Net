@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Text;
 using Net.Buffers;
 using Net.Communication.Attributes;
 using Net.Communication.Incoming.Handler;
@@ -31,8 +33,13 @@ public partial class PacketManagerGeneratorTests
 		Assert.Equal([
 			new PacketManagerData<uint>.ComposerData(typeof(TestComposerNonGeneric), 11u),
 			new PacketManagerData<uint>.ComposerData(typeof(TestComposerGeneric), 12u, typeof(string)),
-			new PacketManagerData<uint>.ComposerData(typeof(TestComposerGenericConstraint<>), 13u, typeof(IDisposable))
+			new PacketManagerData<uint>.ComposerData(typeof(TestComposerGenericConstraint<>), 13u, typeof(IDisposable)),
+			new PacketManagerData<uint>.ComposerData(typeof(TestComposerGenericHandler<string, StringComposerDataHandler>), 14u, typeof(StrongBox<string>))
 		], data.Composers.AsEnumerable());
+
+		Assert.Equal([
+			new PacketManagerData.ComposerHandlerCandidateData(typeof(IComposerDataHandler<>), typeof(StringComposerDataHandler), typeof(IComposerDataHandler<string>))
+		], data.ComposerHandlerCandidates.AsEnumerable());
 	}
 
 	[Fact]
@@ -55,6 +62,26 @@ public partial class PacketManagerGeneratorTests
 		Assert.Equal([
 			new PacketManagerData<string>.ParserData(typeof(TestStringParser), "TEST"),
 		], data.Parsers.AsEnumerable());
+	}
+
+	[Fact]
+	public void MissingComposerHandlerData()
+	{
+		PacketManagerData<uint> data = PacketManagerGeneratorTests.GetTestGenericComposerHandlerMissingData();
+
+		Assert.Equal([
+			new PacketManagerData<uint>.ComposerData(typeof(TestGenericComposerHandlerMissing.TestComposer<,>), 8, typeof(StrongBox<>))
+		], data.Composers.AsEnumerable());
+	}
+
+	[Fact]
+	public void ComposerDataHandlerOnlyData()
+	{
+		PacketManagerData data = PacketManagerGeneratorTests.GetIntComposerDataHandlerPacketManagerData();
+
+		Assert.Equal([
+			new PacketManagerData.ComposerHandlerCandidateData(typeof(IComposerDataHandler<>), typeof(IntComposerDataHandler), typeof(IComposerDataHandler<int>))
+		], data.ComposerHandlerCandidates.AsEnumerable());
 	}
 
 	[PacketManagerGenerator(typeof(TestPacketManager))]
@@ -129,6 +156,17 @@ public partial class PacketManagerGeneratorTests
 		public void Compose(ref PacketWriter writer, in T packet) => throw new NotImplementedException();
 	}
 
+	[PacketManagerRegister(typeof(TestPacketManager))]
+	[PacketComposerId(14u)]
+	private sealed class TestComposerGenericHandler<TData, TDataHandler> : IOutgoingPacketComposer<StrongBox<TData>>
+		where TDataHandler : IComposerDataHandler<TData>
+	{
+		public void Compose(ref PacketWriter writer, in StrongBox<TData> packet)
+		{
+			writer.WriteBytes(TDataHandler.Serialize(packet.Value!));
+		}
+	}
+
 	private sealed class TestStringPacketManager(IServiceProvider serviceProvider) : PacketManager<string>(serviceProvider);
 
 	[PacketManagerGenerator(typeof(TestStringPacketManager))]
@@ -140,5 +178,44 @@ public partial class PacketManagerGeneratorTests
 	{
 		[return: NotNull]
 		public T Parse<T>(ref PacketReader reader) => throw new NotImplementedException();
+	}
+
+	private interface IComposerDataHandler<in T>
+	{
+		public static abstract byte[] Serialize(T value);
+	}
+
+	[PacketManagerRegister(typeof(TestPacketManager))]
+	internal sealed class StringComposerDataHandler : IComposerDataHandler<string>
+	{
+		public static byte[] Serialize(string value) => Encoding.UTF8.GetBytes(value);
+	}
+
+	private class TestGenericComposerHandlerMissing(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider)
+	{
+		[PacketManagerRegister(typeof(TestGenericComposerHandlerMissing))]
+		[PacketComposerId(8u)]
+		internal sealed class TestComposer<TData, TDataHandler> : IOutgoingPacketComposer<StrongBox<TData>>
+			where TDataHandler : IComposerDataHandler<TData>
+		{
+			public void Compose(ref PacketWriter writer, in StrongBox<TData> packet)
+			{
+				writer.WriteBytes(TDataHandler.Serialize(packet.Value!));
+			}
+		}
+	}
+
+	[PacketManagerGenerator(typeof(TestGenericComposerHandlerMissing))]
+	private static partial PacketManagerData<uint> GetTestGenericComposerHandlerMissingData();
+
+	private sealed class IntComposerDataHandlerPacketManager(IServiceProvider serviceProvider) : PacketManager<uint>(serviceProvider);
+
+	[PacketManagerGenerator(typeof(IntComposerDataHandlerPacketManager))]
+	private static partial PacketManagerData<uint> GetIntComposerDataHandlerPacketManagerData();
+
+	[PacketManagerRegister(typeof(IntComposerDataHandlerPacketManager))]
+	internal sealed class IntComposerDataHandler : IComposerDataHandler<int>
+	{
+		public static byte[] Serialize(int value) => BitConverter.GetBytes(value);
 	}
 }

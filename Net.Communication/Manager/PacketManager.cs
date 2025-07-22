@@ -23,6 +23,7 @@ public abstract partial class PacketManager<T>
 	private readonly Dictionary<Type, ConsumerData> IncomingConsumersType;
 
 	private readonly Dictionary<Type, ComposerData> OutgoingComposersType;
+	private readonly Dictionary<Type, (Type HandlerType, Type HandlerInterfaceType)> OutgoingComposerHandlerCandidates;
 
 	private Dictionary<T, IIncomingPacketParser> IncomingParsers;
 	private Dictionary<Type, IIncomingPacketHandler> IncomingHandlers;
@@ -39,6 +40,7 @@ public abstract partial class PacketManager<T>
 		this.IncomingConsumersType = [];
 
 		this.OutgoingComposersType = [];
+		this.OutgoingComposerHandlerCandidates = [];
 
 		this.IncomingParsers = [];
 		this.IncomingHandlers = [];
@@ -65,7 +67,7 @@ public abstract partial class PacketManager<T>
 			this.IncomingParsersType.Add(parserData.Type, new ParserData(parserData.Id, 0, parserData.HandlesType));
 		}
 
-		foreach (PacketManagerData<T>.HandlerData handlerData in packetManagerData.Handlers)
+		foreach (PacketManagerData.HandlerData handlerData in packetManagerData.Handlers)
 		{
 			this.IncomingHandlersType.Add(handlerData.Type, new HandlerData(0, handlerData.HandlesType));
 		}
@@ -73,6 +75,11 @@ public abstract partial class PacketManager<T>
 		foreach (PacketManagerData<T>.ComposerData composerData in packetManagerData.Composers)
 		{
 			this.OutgoingComposersType.Add(composerData.Type, new ComposerData(composerData.Id, 0, composerData.HandlesType));
+		}
+
+		foreach (PacketManagerData.ComposerHandlerCandidateData composerHandlerCandidateData in packetManagerData.ComposerHandlerCandidates)
+		{
+			this.OutgoingComposerHandlerCandidates.Add(composerHandlerCandidateData.Type, (composerHandlerCandidateData.HandlerType, composerHandlerCandidateData.HandlerInterfaceType));
 		}
 
 		this.RebuildHandlers();
@@ -244,16 +251,80 @@ public abstract partial class PacketManager<T>
 		Dictionary<Type, (IOutgoingPacketComposer Composer, T Id)> composers = [];
 		foreach ((Type type, ComposerData data) in this.OutgoingComposersType.OrderByDescending(kvp => kvp.Value.Order))
 		{
-			if (ActivatorUtilities.CreateInstance(this.ServiceProvider, type) is not IOutgoingPacketComposer composer)
+			Type composerType = type;
+			Type? packetType = data.HandlesType;
+			if (composerType.IsGenericType)
+			{
+				Type[] composerGenericArguments = composerType.GetGenericArguments();
+				Type[]? packetGenericArguments = packetType?.GetGenericArguments();
+				foreach (Type genericArgument in composerType.GetGenericArguments())
+				{
+					foreach (Type genericArgumentConstraints in genericArgument.GetGenericParameterConstraints())
+					{
+						if (!this.OutgoingComposerHandlerCandidates.TryGetValue(genericArgumentConstraints.GetGenericTypeDefinition(), out (Type HandlerType, Type HandlerInterfaceType) candidateType))
+						{
+							continue;
+						}
+
+						Dictionary<string, Type> replacements = [];
+						replacements[genericArgument.Name] = candidateType.HandlerType;
+
+						Type[] targetGenericArguments = genericArgumentConstraints.GetGenericArguments();
+						Type[] candidateGenericArguments = candidateType.HandlerInterfaceType.GetGenericArguments();
+
+						for (int i = 0; i < targetGenericArguments.Length; i++)
+						{
+							replacements[targetGenericArguments[i].Name] = candidateGenericArguments[i];
+						}
+
+						for (int i = 0; i < composerGenericArguments.Length; i++)
+						{
+							if (!replacements.TryGetValue(composerGenericArguments[i].Name, out Type? replacementType))
+							{
+								continue;
+							}
+
+							composerGenericArguments[i] = replacementType;
+						}
+
+						if (packetGenericArguments is not null)
+						{
+							for (int i = 0; i < packetGenericArguments.Length; i++)
+							{
+								if (!replacements.TryGetValue(packetGenericArguments[i].Name, out Type? replacementType))
+								{
+									continue;
+								}
+
+								packetGenericArguments[i] = replacementType;
+							}
+						}
+					}
+				}
+
+				composerType = composerType.GetGenericTypeDefinition().MakeGenericType(composerGenericArguments);
+
+				if (packetType is { IsGenericType: true })
+				{
+					packetType = packetType.GetGenericTypeDefinition().MakeGenericType(packetGenericArguments!);
+				}
+			}
+
+			if (composerType.ContainsGenericParameters)
+			{
+				continue;
+			}
+
+			if (ActivatorUtilities.CreateInstance(this.ServiceProvider, composerType) is not IOutgoingPacketComposer composer)
 			{
 				this.Logger?.LogWarning($"Type {type} was registered as IOutgoingPacketComposer but does not implement it!");
 
 				continue;
 			}
 
-			if (data.HandlesType is not null)
+			if (packetType is not null)
 			{
-				composers.TryAdd(data.HandlesType, (composer, data.Id));
+				composers.TryAdd(packetType, (composer, data.Id));
 			}
 		}
 

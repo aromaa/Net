@@ -52,4 +52,14 @@ public abstract partial class PacketManager<T>
 			this.RebuildHandlers();
 		}
 	}
+
+	protected void AddComposerHandlerCandidates(Type candidateType, Type handlerType, Type handlerInterfaceType, bool rebuildHandlers = true)
+	{
+		this.OutgoingComposerHandlerCandidates.Add(candidateType, (handlerType, handlerInterfaceType));
+
+		if (rebuildHandlers)
+		{
+			this.RebuildHandlers();
+		}
+	}
 }

@@ -71,6 +71,23 @@ public abstract partial class PacketManager<T>
 				{
 					this.AddComposer(type, registerAttribute, rebuildHandlers: false);
 				}
+
+				foreach (Type interfaceType in type.GetInterfaces())
+				{
+					if (typeof(IIncomingPacketConsumer).IsAssignableFrom(type)
+						|| typeof(IOutgoingPacketComposer).IsAssignableFrom(type)
+						|| typeof(IIncomingPacketHandler).IsAssignableFrom(type))
+					{
+						continue;
+					}
+
+					if (!interfaceType.IsGenericType)
+					{
+						continue;
+					}
+
+					this.AddComposerHandlerCandidates(interfaceType.GetGenericTypeDefinition(), type, interfaceType, rebuildHandlers: false);
+				}
 			}
 		}
 

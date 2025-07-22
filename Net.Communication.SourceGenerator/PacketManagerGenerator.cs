@@ -119,12 +119,15 @@ public sealed class PacketManagerGenerator : IIncrementalGenerator
 				writer.WriteLine("{");
 				writer.Indent++;
 				writer.WriteLine($"global::System.Collections.Immutable.ImmutableArray<{returnType}.HandlerData>.Builder handlers = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{returnType}.HandlerData>();");
+				writer.WriteLine($"global::System.Collections.Immutable.ImmutableArray<{returnType}.ComposerHandlerCandidateData>.Builder composerHandleCandidates = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{returnType}.ComposerHandlerCandidateData>();");
 				if (full)
 				{
 					writer.WriteLine($"global::System.Collections.Immutable.ImmutableArray<{returnType}.ParserData>.Builder parsers = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{returnType}.ParserData>();");
 					writer.WriteLine($"global::System.Collections.Immutable.ImmutableArray<{returnType}.ComposerData>.Builder composers = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{returnType}.ComposerData>();");
 				}
 
+				List<(INamedTypeSymbol Type, string ComposerId, ITypeSymbol? PacketType)> composers = [];
+				Dictionary<INamedTypeSymbol, (ITypeSymbol HandlerType, INamedTypeSymbol InterfaceType)> composerHandlerCandidates = [];
 				foreach ((INamedTypeSymbol type, ImmutableArray<INamedTypeSymbol> managers) in value.Right)
 				{
 					if (!managers.Contains(manager))
@@ -142,18 +145,28 @@ public sealed class PacketManagerGenerator : IIncrementalGenerator
 					{
 						if (implementedInterface.IsGenericType)
 						{
-							if (full && SymbolEqualityComparer.Default.Equals(implementedInterface.ConstructedFrom, parserGenericType))
+							if (SymbolEqualityComparer.Default.Equals(implementedInterface.ConstructedFrom, parserGenericType))
 							{
-								parserHandlesType = GetHandledType(implementedInterface.TypeArguments[0]);
+								if (full)
+								{
+									parserHandlesType = GetHandledType(implementedInterface.TypeArguments[0]);
+								}
 							}
 							else if (SymbolEqualityComparer.Default.Equals(implementedInterface.ConstructedFrom, handlerGenericType))
 							{
 								handler = true;
 								handlerHandlesType = GetHandledType(implementedInterface.TypeArguments[0]);
 							}
-							else if (full && SymbolEqualityComparer.Default.Equals(implementedInterface.ConstructedFrom, composerGenericType))
+							else if (SymbolEqualityComparer.Default.Equals(implementedInterface.ConstructedFrom, composerGenericType))
 							{
-								composerHandlesType = GetHandledType(implementedInterface.TypeArguments[0]);
+								if (full)
+								{
+									composerHandlesType = GetHandledType(implementedInterface.TypeArguments[0]);
+								}
+							}
+							else
+							{
+								composerHandlerCandidates.Add(implementedInterface.OriginalDefinition, (type, implementedInterface));
 							}
 
 							static ITypeSymbol? GetHandledType(ITypeSymbol symbol)
@@ -216,17 +229,94 @@ public sealed class PacketManagerGenerator : IIncrementalGenerator
 
 					if (composerId is not null)
 					{
-						writer.WriteLine($"composers.Add(new {returnType}.ComposerData(typeof({(type.IsGenericType ? type.ConstructUnboundGenericType() : type)}), {composerId}, {(composerHandlesType is not null ? $"typeof({composerHandlesType})" : "null")}));");
+						composers.Add((type, composerId, composerHandlesType));
 					}
+				}
+
+				foreach ((INamedTypeSymbol Type, string ComposerId, ITypeSymbol? PacketType) composer in composers)
+				{
+					INamedTypeSymbol type = composer.Type;
+					ITypeSymbol? packetType = composer.PacketType;
+					if (composer.Type.IsGenericType)
+					{
+						ITypeSymbol[] composerGenericArguments = type.TypeArguments.ToArray();
+						ITypeSymbol[]? packetGenericArguments = (packetType as INamedTypeSymbol)?.TypeArguments.ToArray();
+						foreach (ITypeSymbol composerTypeArgument in type.TypeArguments)
+						{
+							if (composerTypeArgument is ITypeParameterSymbol typeParameter)
+							{
+								foreach (ITypeSymbol? constraintType in typeParameter.ConstraintTypes)
+								{
+									if (constraintType is not INamedTypeSymbol { OriginalDefinition: { } originalDefinition } constraintSymbol ||
+										!composerHandlerCandidates.TryGetValue(originalDefinition, out (ITypeSymbol HandlerType, INamedTypeSymbol InterfaceType) candidateType))
+									{
+										continue;
+									}
+
+									Dictionary<ITypeSymbol, ITypeSymbol> replacements = [];
+									replacements[composerTypeArgument] = candidateType.HandlerType;
+
+									ImmutableArray<ITypeSymbol> targetGenericArguments = constraintSymbol.TypeArguments;
+									ImmutableArray<ITypeSymbol> candidateGenericArguments = candidateType.InterfaceType.TypeArguments;
+
+									for (int i = 0; i < targetGenericArguments.Length; i++)
+									{
+										replacements[targetGenericArguments[i]] = candidateGenericArguments[i];
+									}
+
+									for (int i = 0; i < composerGenericArguments.Length; i++)
+									{
+										if (!replacements.TryGetValue(composerGenericArguments[i], out ITypeSymbol replacementType))
+										{
+											continue;
+										}
+
+										composerGenericArguments[i] = replacementType;
+									}
+
+									if (packetGenericArguments is not null)
+									{
+										for (int i = 0; i < packetGenericArguments.Length; i++)
+										{
+											if (!replacements.TryGetValue(packetGenericArguments[i], out ITypeSymbol replacementType))
+											{
+												continue;
+											}
+
+											packetGenericArguments[i] = replacementType;
+										}
+									}
+								}
+							}
+						}
+
+						type = composerGenericArguments.Any(s => s is ITypeParameterSymbol)
+							? type.ConstructUnboundGenericType()
+							: type.OriginalDefinition.Construct(composerGenericArguments);
+
+						if (packetGenericArguments is { Length: > 0 })
+						{
+							packetType = packetGenericArguments.Any(s => s is ITypeParameterSymbol)
+								? ((INamedTypeSymbol)packetType!).ConstructUnboundGenericType()
+								: ((INamedTypeSymbol)packetType!).OriginalDefinition.Construct(packetGenericArguments);
+						}
+					}
+
+					writer.WriteLine($"composers.Add(new {returnType}.ComposerData(typeof({type}), {composer.ComposerId}, {(packetType is not null ? $"typeof({packetType})" : "null")}));");
+				}
+
+				foreach (KeyValuePair<INamedTypeSymbol, (ITypeSymbol HandlerType, INamedTypeSymbol InterfaceType)> entry in composerHandlerCandidates)
+				{
+					writer.WriteLine($"composerHandleCandidates.Add(new {returnType}.ComposerHandlerCandidateData(typeof({entry.Key.ConstructUnboundGenericType()}), typeof({entry.Value.HandlerType}), typeof({entry.Value.InterfaceType})));");
 				}
 
 				if (full)
 				{
-					writer.WriteLine($"return new {returnType}(parsers.ToImmutable(), handlers.ToImmutable(), composers.ToImmutable());");
+					writer.WriteLine($"return new {returnType}(parsers.ToImmutable(), handlers.ToImmutable(), composers.ToImmutable(), composerHandleCandidates.ToImmutable());");
 				}
 				else
 				{
-					writer.WriteLine($"return new {returnType}(handlers.ToImmutable());");
+					writer.WriteLine($"return new {returnType}(handlers.ToImmutable(), composerHandleCandidates.ToImmutable());");
 				}
 
 				writer.Indent--;
