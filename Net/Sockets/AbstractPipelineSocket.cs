@@ -40,6 +40,11 @@ internal abstract class AbstractPipelineSocket : ISocket
 
 		this.Metadata = new MetadataMap();
 		this.Pipeline = new SocketPipeline(this);
+
+		this.SendQueue = Channel.CreateUnbounded<ISendQueueTask>(new UnboundedChannelOptions
+		{
+			SingleReader = true
+		});
 	}
 
 	public bool Closed => this.Status.HasFlag(SocketStatus.Disposed);
@@ -84,11 +89,6 @@ internal abstract class AbstractPipelineSocket : ISocket
 
 			this.ReceivePipe = new Pipe(AbstractPipelineSocket.PipeOptions);
 			this.SendPipe = new Pipe(AbstractPipelineSocket.PipeOptions);
-
-			this.SendQueue = Channel.CreateUnbounded<ISendQueueTask>(new UnboundedChannelOptions
-			{
-				SingleReader = true
-			});
 
 			AbstractPipelineSocket.PipeOptions.WriterScheduler.Schedule(o => _ = this.Receive(this.ReceivePipe!.Writer), this);
 			AbstractPipelineSocket.PipeOptions.ReaderScheduler.Schedule(o => _ = this.HandleData(this.ReceivePipe!.Reader), this);
